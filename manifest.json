@@ -1,11 +1,24 @@
 {
+    "id": "horizon-clicker",
     "name": "Кликер — Premium Edition",
     "short_name": "Кликер",
     "description": "Кликер с титулами, коллекциями и престижем",
+    "lang": "ru",
+    "dir": "ltr",
     "start_url": "./index.html",
     "scope": "./",
     "display": "standalone",
     "orientation": "portrait",
     "background_color": "#050510",
-    "theme_color": "#050510"
+    "theme_color": "#050510",
+    "categories": ["games", "entertainment"],
+    "prefer_related_applications": false,
+    "icons": [
+        {
+            "src": "data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 512 512'><rect width='512' height='512' rx='100' fill='%23050510'/><circle cx='256' cy='256' r='180' fill='%23ffd966'/><text x='256' y='340' font-size='240' text-anchor='middle'>🍪</text></svg>",
+            "sizes": "512x512",
+            "type": "image/svg+xml",
+            "purpose": "any"
+        }
+    ]
 }
