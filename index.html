@@ -3017,7 +3017,64 @@
 
     console.log('[BATTLEPASS] ✅ Патч v2 загружен');
 })();
-  
+    
+    // ╔═══════════════════════════════════════════════════════╗
+// ║  🎯 ПАТЧ: ОЧИСТКА БИТЫХ ДОСТИЖЕНИЙ                    ║
+// ║  Вставлять ПЕРЕД init();                             ║
+// ╚═══════════════════════════════════════════════════════╝
+(function fixBrokenAchievementsPatch() {
+    if (window.__fixAchApplied) return;
+    window.__fixAchApplied = true;
+    console.log('[FIX-ACH] Старт...');
+
+    // Ждём, пока базовая игра загрузит прогресс и инициализирует все переменные
+    setTimeout(() => {
+        if (typeof ACHIEVEMENTS === 'undefined' || typeof state === 'undefined') return;
+
+        const validIds = new Set(ACHIEVEMENTS.map(a => a.id));
+        let removedCount = 0;
+
+        // Проходимся по всем открытым достижениям игрока
+        for (const id of state.unlockedAchievements) {
+            // Если такого ID нет в текущем списке ACHIEVEMENTS — удаляем
+            if (!validIds.has(id)) {
+                state.unlockedAchievements.delete(id);
+                removedCount++;
+            }
+        }
+
+        if (removedCount > 0) {
+            console.log(`[FIX-ACH] Удалено битых достижений: ${removedCount}`);
+            
+            // Пересчитываем бонус к доходу
+            if (typeof recalcAchBonus === 'function') recalcAchBonus();
+            
+            // Сохраняем исправленный прогресс
+            if (typeof saveProgress === 'function') saveProgress();
+            
+            // Обновляем интерфейс
+            if (typeof updateUI === 'function') updateUI();
+            if (typeof updateAchUI === 'function') updateAchUI();
+            if (typeof renderAchievements === 'function') renderAchievements();
+
+            // Также отправляем исправленный список в Supabase
+            if (typeof sbFetch === 'function' && state.playerName) {
+                sbFetch(`leaderboard?player_name=ilike.${encodeURIComponent(state.playerName)}`, {
+                    method: 'PATCH',
+                    headers: { 'Prefer': 'return=minimal' },
+                    body: JSON.stringify({ achievements: [...state.unlockedAchievements] })
+                }).catch(e => console.warn('Не удалось синхронизировать ачивки:', e));
+            }
+
+            if (typeof toast === 'function') {
+                toast('🔧 Битые достижения удалены', 'success');
+            }
+        }
+    }, 3000); // Ждём 3 секунды, чтобы игра точно всё загрузила
+
+    console.log('[FIX-ACH] ✅ Патч загружен');
+})();
+    
     init();
 })();
 </script>
