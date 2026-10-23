@@ -2936,27 +2936,40 @@
         }
     }
 
+        // ═══════════════════════════════════════════════════════
+    // 8. ХУКИ: XP ЗА КЛИКИ И ПОКУПКИ (DOM-перехват)
     // ═══════════════════════════════════════════════════════
-    // 8. ХУКИ: XP ЗА КЛИКИ И ПОКУПКИ
-    // ═══════════════════════════════════════════════════════
-    if (typeof handleClick === 'function' && !window.__origHandleClickBP) {
-        window.__origHandleClickBP = handleClick;
-        window.handleClick = function() {
-            window.__origHandleClickBP.apply(this, arguments);
-            addBPXp(XP_PER_CLICK);
-        };
-        try { handleClick = window.handleClick; } catch(e) {}
-    }
+    
+    // Перехватываем клики напрямую через кнопку (самый надежный способ)
+    setTimeout(() => {
+        const clickBtn = document.getElementById('clickButton');
+        if (clickBtn && !clickBtn.__bpHooked) {
+            clickBtn.__bpHooked = true;
+            clickBtn.addEventListener('click', () => {
+                addBPXp(XP_PER_CLICK);
+            });
+            console.log('[BATTLEPASS] ✅ Клики успешно привязаны к XP');
+        }
+    }, 1500);
 
-    if (typeof tryBuy === 'function' && !window.__origTryBuyBP) {
-        window.__origTryBuyBP = tryBuy;
-        window.tryBuy = function(upgrade, element) {
-            const before = upgrade ? upgrade.level : 0;
-            window.__origTryBuyBP.apply(this, arguments);
-            if (upgrade && upgrade.level > before) addBPXp(XP_PER_PURCHASE);
-        };
-        try { tryBuy = window.tryBuy; } catch(e) {}
-    }
+    // Перехватываем покупки через делегирование событий на список улучшений
+    setTimeout(() => {
+        const upgradesList = document.getElementById('upgradesList');
+        if (upgradesList && !upgradesList.__bpHooked) {
+            upgradesList.__bpHooked = true;
+            upgradesList.addEventListener('click', (e) => {
+                // Проверяем, что кликнули по карточке улучшения
+                const item = e.target.closest('.upgrade-item');
+                if (item && !item.classList.contains('locked') && !item.classList.contains('purchased')) {
+                    // Небольшая задержка, чтобы уровень улучшения успел обновиться в базовой игре
+                    setTimeout(() => {
+                        addBPXp(XP_PER_PURCHASE);
+                    }, 50);
+                }
+            });
+            console.log('[BATTLEPASS] ✅ Покупки успешно привязаны к XP');
+        }
+    }, 1500);
 
     // ═══════════════════════════════════════════════════════
     // 9. ПАТЧИ СОХРАНЕНИЯ
