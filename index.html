@@ -3386,7 +3386,222 @@
 
     console.log('[AUTOSAVE] ✅ Патч загружен');
 })();
+   
+   // ╔═══════════════════════════════════════════════════════╗
+// ║  🎯 ПАТЧ: СИСТЕМА ОБЪЯВЛЕНИЙ В ИГРЕ                  ║
+// ║  Вставлять ПЕРЕД init();                             ║
+// ╚═══════════════════════════════════════════════════════╝
+(function announcementsPatch() {
+    if (window.__announcementsApplied) return;
+    window.__announcementsApplied = true;
+    console.log('[ANNOUNCE] Старт...');
+
+    let lastAnnounceId = -1;
+
+    // CSS для баннера
+    if (!document.getElementById('announce-css')) {
+        const css = document.createElement('style');
+        css.id = 'announce-css';
+        css.textContent = `
+.announce-banner {
+    position: fixed; top: 16px; left: 50%; transform: translateX(-50%) translateY(-150px);
+    width: calc(100% - 32px); max-width: 480px;
+    background: linear-gradient(135deg, rgba(60,45,20,0.98), rgba(30,20,10,0.98));
+    border: 2px solid #ffd966; border-radius: 16px;
+    padding: 14px 40px 14px 16px; z-index: 10050;
+    box-shadow: 0 20px 60px rgba(0,0,0,0.8), 0 0 40px rgba(255,179,71,0.4);
+    display: flex; align-items: center; gap: 12px;
+    transition: transform 0.5s cubic-bezier(0.34, 1.56, 0.64, 1);
+}
+.announce-banner.show { transform: translateX(-50%) translateY(0); }
+.announce-icon { font-size: 1.5rem; animation: bellRing 2s infinite; }
+@keyframes bellRing { 0%, 100% { transform: rotate(0); } 10%, 30% { transform: rotate(15deg); } 20%, 40% { transform: rotate(-15deg); } }
+.announce-text { flex: 1; color: #fff; font-size: 0.85rem; font-weight: 600; line-height: 1.4; word-break: break-word; }
+.announce-text a { color: #ffd966; font-weight: 800; text-decoration: underline; }
+.announce-close {
+    position: absolute; top: 50%; right: 12px; transform: translateY(-50%);
+    background: rgba(255,255,255,0.1); border: none; color: #fff; width: 24px; height: 24px;
+    border-radius: 50%; cursor: pointer; display: flex; align-items: center; justify-content: center;
+    font-size: 0.8rem; transition: background 0.2s;
+}
+.announce-close:hover { background: rgba(255,255,255,0.2); }
+`;
+        document.head.appendChild(css);
+    }
+
+    // Функция получения объявлений
+    async function fetchAnnouncements() {
+        if (typeof sbFetch !== 'function') return;
+
+        try {
+            // Берем 1 последнее активное объявление
+            const data = await sbFetch('announcements?is_active=eq.true&order=created_at.desc&limit=1');
+            
+            if (data && data.length > 0) {
+                const latest = data[0];
+                
+                // Если это новое объявление (ID отличается от того, что мы показывали)
+                if (latest.id !== lastAnnounceId) {
+                    lastAnnounceId = latest.id;
+                    showAnnouncement(latest.message);
+                }
+            }
+        } catch(e) {
+            // Тихо игнорируем, если таблицы нет или интернет пропал
+            console.warn('[ANNOUNCE] Ошибка загрузки:', e.message);
+        }
+    }
+
+    // Показ плашки
+    function showAnnouncement(text) {
+        // Удаляем старую, если висит
+        const old = document.getElementById('globalAnnounce');
+        if (old) old.remove();
+
+        const banner = document.createElement('div');
+        banner.className = 'announce-banner';
+        banner.id = 'globalAnnounce';
+        
+        // Поддерживаем ссылки (например, если админ напишет текст и ссылку через пробел)
+        // Автоматически оборачиваем ссылки в тег <a>
+        const formattedText = text.replace(/(https?:\/\/[^\s]+)/g, '<a href="$1" target="_blank">Ссылка</a>');
+
+        banner.innerHTML = `
+            <div class="announce-icon">📢</div>
+            <div class="announce-text">${formattedText}</div>
+            <button class="announce-close" onclick="document.getElementById('globalAnnounce').remove()">✕</button>
+        `;
+        
+        document.body.appendChild(banner);
+        
+        // Анимация появления
+        requestAnimationFrame(() => banner.classList.add('show'));
+
+        // Автоскрытие через 15 секунд (чтобы не мешала играть)
+        setTimeout(() => {
+            if (document.getElementById('globalAnnounce')) {
+                banner.classList.remove('show');
+                setTimeout(() => banner.remove(), 500);
+            }
+        }, 15000);
+        
+        // Дополнительный звук/вибрация (опционально)
+        if (typeof toast === 'function') toast('📢 Новое объявление от разработчика!', 'success');
+    }
+
+    // Запускаем проверку при старте (через 3 секунды, чтобы база успела прогрузиться)
+    setTimeout(fetchAnnouncements, 3000);
     
+    // И проверяем каждые 30 секунд
+    setInterval(fetchAnnouncements, 30000);
+
+    console.log('[ANNOUNCE] ✅ Патч загружен');
+})();
+   
+   // ╔═══════════════════════════════════════════════════════╗
+// ║  🎯 ПАТЧ: АДМИНКА — ОТПРАВКА ОБЪЯВЛЕНИЙ              ║
+// ║  Вставлять ПЕРЕД init();                             ║
+// ╚═══════════════════════════════════════════════════════╝
+(function adminAnnouncePatch() {
+    if (window.__adminAnnounceApplied) return;
+    window.__adminAnnounceApplied = true;
+
+    setTimeout(() => {
+        const adminTabs = document.querySelector('.admin-tabs');
+        const adminContent = document.querySelector('.admin-content');
+        if (!adminTabs || !adminContent) return;
+
+        // Добавляем кнопку вкладки
+        if (!adminTabs.querySelector('[data-atab="announce"]')) {
+            const btn = document.createElement('button');
+            btn.className = 'admin-tab';
+            btn.dataset.atab = 'announce';
+            btn.innerHTML = '📢 Объявления';
+            adminTabs.appendChild(btn);
+
+            // Создаем контент вкладки
+            const pane = document.createElement('div');
+            pane.className = 'admin-pane';
+            pane.id = 'apane-announce';
+            pane.innerHTML = `
+                <div class="admin-section">
+                    <div class="admin-section-title">📢 Отправить объявление в игру</div>
+                    <div class="admin-row" style="flex-direction:column; align-items:stretch;">
+                        <textarea id="adminAnnounceText" class="admin-input" rows="4" placeholder="Введите текст (можно вставить ссылку https://...)" style="resize:vertical; font-size:0.85rem; padding:12px;"></textarea>
+                    </div>
+                    <div class="admin-row" style="margin-top:10px;">
+                        <button class="admin-btn gold" id="adminSendAnnounce" style="flex:1;">🚀 Отправить всем</button>
+                        <button class="admin-btn" id="adminDisableAnnounce" style="flex:1; background:#64748b;">🚫 Отключить все</button>
+                    </div>
+                    <div style="font-size:0.7rem; color:#94a3b8; margin-top:10px;">
+                        💡 Игроки увидят плашку сверху экрана. Она исчезнет через 15 секунд.
+                    </div>
+                </div>
+            `;
+            adminContent.appendChild(pane);
+
+            // Обработчик клика по вкладке
+            btn.addEventListener('click', () => {
+                document.querySelectorAll('.admin-tab').forEach(t => t.classList.remove('active'));
+                document.querySelectorAll('.admin-pane').forEach(p => p.classList.remove('active'));
+                btn.classList.add('active');
+                pane.classList.add('active');
+            });
+
+            // Обработчик отправки
+            document.getElementById('adminSendAnnounce').addEventListener('click', async () => {
+                const text = document.getElementById('adminAnnounceText').value.trim();
+                if (!text) { alert('Введите текст!'); return; }
+
+                const btnSend = document.getElementById('adminSendAnnounce');
+                btnSend.disabled = true;
+                btnSend.textContent = '⏳ Отправка...';
+
+                try {
+                    if (typeof sbFetch === 'function') {
+                        // Отключаем старые
+                        await sbFetch('announcements?is_active=eq.true', {
+                            method: 'PATCH',
+                            headers: { 'Prefer': 'return=minimal' },
+                            body: JSON.stringify({ is_active: false })
+                        });
+
+                        // Добавляем новое
+                        await sbFetch('announcements', {
+                            method: 'POST',
+                            headers: { 'Prefer': 'return=minimal' },
+                            body: JSON.stringify({ message: text, is_active: true })
+                        });
+
+                        alert('✅ Объявление отправлено!');
+                        document.getElementById('adminAnnounceText').value = '';
+                    }
+                } catch (e) {
+                    alert('Ошибка: ' + e.message);
+                } finally {
+                    btnSend.disabled = false;
+                    btnSend.textContent = '🚀 Отправить всем';
+                }
+            });
+
+            // Отключить все
+            document.getElementById('adminDisableAnnounce').addEventListener('click', async () => {
+                if (!confirm('Отключить все активные объявления?')) return;
+                try {
+                    await sbFetch('announcements?is_active=eq.true', {
+                        method: 'PATCH',
+                        headers: { 'Prefer': 'return=minimal' },
+                        body: JSON.stringify({ is_active: false })
+                    });
+                    alert('Все объявления отключены');
+                } catch (e) { alert('Ошибка'); }
+            });
+        }
+    }, 2500);
+
+    console.log('[ADMIN-ANNOUNCE] ✅ Патч загружен');
+})();
+   
     init();
 })();
 </script>
