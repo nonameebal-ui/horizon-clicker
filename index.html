@@ -4059,19 +4059,16 @@
 
     console.log('[FIX-TITLE-DB] ✅ Патч загружен');
 })();
-   
-   // ╔═══════════════════════════════════════════════════════╗
-// ║  🎯 ПАТЧ: ТИТУЛ "ЛЮБОВЬ СОЗДАТЕЛЯ" (FINAL)           ║
+    
+    // ╔═══════════════════════════════════════════════════════╗
+// ║  🎯 ПАТЧ: ТИТУЛ "ЛЮБОВЬ СОЗДАТЕЛЯ" (NO-LOTTIE FIX)    ║
 // ║  Вставлять ПЕРЕД init();                             ║
 // ╚═══════════════════════════════════════════════════════╝
-(function loveTitleFinalPatch() {
-    if (window.__loveFinalApplied) return;
-    window.__loveFinalApplied = true;
-    console.log('[LOVE-FINAL] Старт...');
+(function loveTitleFinalFix() {
+    if (window.__loveFinalFixApplied) return;
+    window.__loveFinalFixApplied = true;
+    console.log('[LOVE-FIX] Старт...');
 
-    // ═══════════════════════════════════════════════════════
-    // 1. CSS
-    // ═══════════════════════════════════════════════════════
     if (!document.getElementById('love-css')) {
         const style = document.createElement('style');
         style.id = 'love-css';
@@ -4086,9 +4083,6 @@
         document.head.appendChild(style);
     }
 
-    // ═══════════════════════════════════════════════════════
-    // 2. ХРАНИЛИЩЕ
-    // ═══════════════════════════════════════════════════════
     function getTitlesData() {
         try {
             const raw = localStorage.getItem('clicker_titles');
@@ -4099,9 +4093,6 @@
         try { localStorage.setItem('clicker_titles', JSON.stringify(data)); } catch(e) {}
     }
 
-    // ═══════════════════════════════════════════════════════
-    // 3. UI КАРТОЧКА В КОЛЛЕКЦИИ
-    // ═══════════════════════════════════════════════════════
     function injectLoveCard() {
         const grid = document.getElementById('titlesGrid');
         if (!grid || document.getElementById('title-love')) return;
@@ -4117,8 +4108,8 @@
         let btnText = isOwned ? (isActive ? 'Надет' : 'Надеть') : '🔒';
 
         card.innerHTML = `
-            <div class="tt-lottie-wrap" id="love-icon-wrap" style="--rarity-color: #ff4d6d;">
-                <div class="fallback-icon" style="color:#ff4d6d;">💖</div>
+            <div class="tt-lottie-wrap" style="--rarity-color: #ff4d6d;">
+                <div class="fallback-icon" style="color:#ff4d6d; font-size: 1.6rem;">💖</div>
             </div>
             <div class="tt-info">
                 <div class="tt-name">Любовь создателя</div>
@@ -4128,8 +4119,8 @@
             <button class="tt-btn" ${(!isOwned || isActive) ? 'disabled' : ''}>${btnText}</button>
         `;
 
-        // Анимация сердечек
-        const iconWrap = card.querySelector('#love-icon-wrap');
+        // Сердечки
+        const iconWrap = card.querySelector('.tt-lottie-wrap');
         if (!iconWrap.dataset.hearts) {
             iconWrap.dataset.hearts = "1";
             setInterval(() => {
@@ -4144,7 +4135,6 @@
             }, 600);
         }
 
-        // Клик "Надеть"
         if (isOwned && !isActive) {
             card.querySelector('.tt-btn').addEventListener('click', () => {
                 const d = getTitlesData();
@@ -4157,16 +4147,13 @@
                         body: JSON.stringify({ active_title: 'love' })
                     }).catch(() => {});
                 }
-                if (typeof toast === 'function') toast('💖 Титул «Любовь создателя» надет!', 'success');
+                if (typeof toast === 'function') toast('💖 Титул надет!', 'success');
                 location.reload();
             });
         }
         grid.appendChild(card);
     }
 
-    // ═══════════════════════════════════════════════════════
-    // 4. КНОПКА В АДМИНКЕ
-    // ═══════════════════════════════════════════════════════
     function injectAdminButton() {
         const adminGrid = document.getElementById('adminTitleGrid');
         if (!adminGrid || document.getElementById('admin-love-btn')) return;
@@ -4211,9 +4198,6 @@
         adminGrid.appendChild(row);
     }
 
-    // ═══════════════════════════════════════════════════════
-    // 5. ЗАГРУЗКА ИЗ SUPABASE
-    // ═══════════════════════════════════════════════════════
     async function syncLoveFromDB() {
         if (typeof sbFetch !== 'function' || typeof state === 'undefined' || !state.playerName) return;
         try {
@@ -4225,7 +4209,7 @@
                     if (!localData.owned.includes('love')) {
                         localData.owned.push('love');
                         saveTitlesData(localData);
-                        console.log('[LOVE-FINAL] ✅ Титул получен из базы');
+                        console.log('[LOVE-FIX] ✅ Титул получен из базы');
                         if (typeof toast === 'function') toast('💖 Вам подарен титул «Любовь создателя»!', 'success');
                         setTimeout(() => location.reload(), 1500);
                     }
@@ -4234,14 +4218,13 @@
         } catch(e) {}
     }
 
-    // Запуск
     setInterval(() => { injectLoveCard(); injectAdminButton(); }, 1000);
     setTimeout(syncLoveFromDB, 3000);
-    setInterval(syncLoveFromDB, 15000); // Проверяем каждые 15 сек
+    setInterval(syncLoveFromDB, 15000);
 
-    console.log('[LOVE-FINAL] ✅ Патч загружен');
+    console.log('[LOVE-FIX] ✅ Патч загружен');
 })();
-   
+    
     init();
 })();
 </script>
