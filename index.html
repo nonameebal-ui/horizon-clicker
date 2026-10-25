@@ -4060,6 +4060,64 @@
     console.log('[FIX-TITLE-DB] ✅ Патч загружен');
 })();
     
+    // ╔═══════════════════════════════════════════════════════╗
+// ║  🎯 ПАТЧ: ДОБАВЛЕНИЕ ТИТУЛА "ЛЮБОВЬ СОЗДАТЕЛЯ"        ║
+// ║  Вставлять ПЕРЕД init();                             ║
+// ╚═══════════════════════════════════════════════════════╝
+(function addLoveTitlePatch() {
+    if (window.__addLoveTitleApplied) return;
+    window.__addLoveTitleApplied = true;
+    console.log('[LOVE-TITLE] Старт...');
+
+    setTimeout(() => {
+        // 1. Проверяем, что патч титулов загружен (там есть массив TITLES)
+        if (typeof TITLES !== 'undefined' && !TITLES.find(t => t.id === 'love')) {
+            TITLES.push({
+                id: 'love',
+                name: 'Любовь создателя',
+                icon: '💖',
+                desc: 'Создатель тебя обожает',
+                req: 'Секретное условие',
+                rarity: 'love', // Кастомная редкость
+                lottie: ''
+            });
+            console.log('[LOVE-TITLE] ✅ Титул добавлен в коллекцию игрока');
+            
+            // Перерисовываем вкладку титулов, если она открыта
+            if (typeof renderTitles === 'function') {
+                try { renderTitles(); } catch(e) {}
+            }
+        }
+
+        // 2. Проверяем админку и добавляем титул в список выдачи
+        if (typeof TITLES_LIST !== 'undefined' && !TITLES_LIST.find(t => t.id === 'love')) {
+            TITLES_LIST.push({ id: 'love', name: 'Любовь создателя', icon: '💖' });
+            console.log('[LOVE-TITLE] ✅ Титул добавлен в админку');
+            
+            // Если админка уже отрисована, нужно её обновить
+            // (перерисовка произойдет, когда ты заново откроешь вкладку или обновишь страницу)
+        }
+
+        // 3. Добавляем CSS для розовой редкости и анимации сердечек (если их еще нет)
+        if (!document.getElementById('love-title-css')) {
+            const css = document.createElement('style');
+            css.id = 'love-title-css';
+            css.textContent = `
+.rarity-love { --rarity-color: #ff4d6d; --rarity-gradient: linear-gradient(135deg,#ff4d6d,#ff8fa3, #ff4d6d); }
+.rarity-love.title-card { border-color: rgba(255,77,109,.6); box-shadow: 0 0 30px rgba(255,77,109,.3); }
+.rarity-love.active { border-color: #ff4d6d; box-shadow: 0 0 30px rgba(255,77,109,.6); }
+.rarity-love .title-status { background: rgba(255,77,109,.2); color: #ff4d6d; border-color: #ff4d6d; }
+.heart-particle { position: absolute; color: #ff4d6d; font-size: 10px; pointer-events: none; animation: floatHeart 2s ease-in infinite; opacity: 0; z-index: 10; }
+@keyframes floatHeart { 0% { transform: translateY(0) scale(0.5); opacity: 0; } 20% { opacity: 1; } 100% { transform: translateY(-40px) scale(1.2); opacity: 0; } }
+`;
+            document.head.appendChild(css);
+        }
+
+    }, 3000); // Ждем 3 секунды, чтобы все патчи точно загрузились
+
+    console.log('[LOVE-TITLE] ✅ Патч загружен');
+})();
+    
     init();
 })();
 </script>
