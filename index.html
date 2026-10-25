@@ -4118,6 +4118,152 @@
     console.log('[LOVE-TITLE] ✅ Патч загружен');
 })();
     
+    // ╔═══════════════════════════════════════════════════════╗
+// ║  🎯 ФИКС: ТИТУЛ "ЛЮБОВЬ СОЗДАТЕЛЯ" (HTML INJECT)      ║
+// ║  Вставлять ПЕРЕД init();                             ║
+// ╚═══════════════════════════════════════════════════════╝
+(function loveTitleFixPatch() {
+    if (window.__loveTitleFixApplied) return;
+    window.__loveTitleFixApplied = true;
+    console.log('[LOVE-FIX] Старт...');
+
+    // 1. Добавляем CSS (если его нет)
+    if (!document.getElementById('love-css')) {
+        const style = document.createElement('style');
+        style.id = 'love-css';
+        style.textContent = `
+.rarity-love { --rarity-color: #ff4d6d; --rarity-gradient: linear-gradient(135deg,#ff4d6d,#ff8fa3,#ff4d6d); }
+.rarity-love.tt-card { border-color: rgba(255,77,109,.6); box-shadow: 0 0 30px rgba(255,77,109,.3); }
+.rarity-love.tt-card.active { border-color: #ff4d6d; box-shadow: 0 0 30px rgba(255,77,109,.6); }
+.rarity-love.tt-card.active .tt-btn { background: #ff4d6d; color: #fff; border-color: #ff4d6d; }
+.heart-particle { position: absolute; color: #ff4d6d; font-size: 12px; pointer-events: none; animation: floatHeart 2s ease-in infinite; opacity: 0; z-index: 10; }
+@keyframes floatHeart { 0% { transform: translateY(0) scale(0.5); opacity: 0; } 20% { opacity: 1; } 100% { transform: translateY(-40px) scale(1.2); opacity: 0; } }
+`;
+        document.head.appendChild(style);
+    }
+
+    // 2. Функция вставки карточки в коллекцию титулов
+    function injectLoveCard() {
+        const grid = document.getElementById('titlesGrid');
+        if (!grid || document.getElementById('title-love')) return;
+
+        // Читаем состояние из localStorage
+        let isOwned = false, isActive = false;
+        try {
+            const raw = localStorage.getItem('clicker_titles');
+            if (raw) {
+                const data = JSON.parse(raw);
+                if (data.owned && data.owned.includes('love')) isOwned = true;
+                if (data.active === 'love') isActive = true;
+            }
+        } catch(e) {}
+
+        const card = document.createElement('div');
+        card.id = 'title-love';
+        card.className = `tt-card rarity-love ${isActive ? 'active' : (isOwned ? 'owned' : 'locked')}`;
+
+        let btnText = isOwned ? (isActive ? 'Надет' : 'Надеть') : '🔒';
+
+        card.innerHTML = `
+            <div class="tt-lottie-wrap" id="love-icon-wrap" style="--rarity-color: #ff4d6d;">
+                <div class="fallback-icon" style="color:#ff4d6d;">💖</div>
+            </div>
+            <div class="tt-info">
+                <div class="tt-name">Любовь создателя</div>
+                <div class="tt-desc">Создатель тебя обожает</div>
+                <div class="tt-req" style="color:#ff4d6d;">Условие: Секретное</div>
+            </div>
+            <button class="tt-btn" ${(!isOwned || isActive) ? 'disabled' : ''}>${btnText}</button>
+        `;
+
+        // Анимация сердечек
+        const iconWrap = card.querySelector('#love-icon-wrap');
+        setInterval(() => {
+            if (!document.body.contains(iconWrap)) return;
+            const heart = document.createElement('div');
+            heart.className = 'heart-particle';
+            heart.textContent = '❤️';
+            heart.style.left = Math.random() * 40 + 'px';
+            heart.style.bottom = '0px';
+            iconWrap.appendChild(heart);
+            setTimeout(() => heart.remove(), 2000);
+        }, 600);
+
+        // Кнопка "Надеть"
+        if (isOwned && !isActive) {
+            card.querySelector('.tt-btn').addEventListener('click', () => {
+                try {
+                    const raw = localStorage.getItem('clicker_titles');
+                    const data = raw ? JSON.parse(raw) : { active: null, owned: [] };
+                    data.active = 'love';
+                    localStorage.setItem('clicker_titles', JSON.stringify(data));
+                    location.reload();
+                } catch(e) {}
+            });
+        }
+
+        grid.appendChild(card);
+    }
+
+    // 3. Функция вставки кнопки в админку
+    function injectAdminButton() {
+        const adminGrid = document.getElementById('adminTitleGrid');
+        if (!adminGrid || document.getElementById('admin-love-btn')) return;
+
+        const row = document.createElement('div');
+        row.id = 'admin-love-btn';
+        row.className = 'admin-upgrade-row';
+        row.style.cssText = 'padding:10px;background:rgba(0,0,0,0.3);border-radius:10px;margin-bottom:6px;';
+        row.innerHTML = `
+            <div style="font-size:1.4rem; min-width:30px; text-align:center;">💖</div>
+            <div style="flex:1; font-size:.8rem; font-weight:700; color:#ff4d6d;">Любовь создателя</div>
+            <button class="admin-btn green" style="padding:6px 12px; font-size:.7rem;">Выдать</button>
+        `;
+
+        row.querySelector('button').addEventListener('click', async () => {
+            const playerId = document.getElementById('apane-titles').dataset.playerId;
+            if (!playerId) return alert('Сначала найдите игрока!');
+
+            try {
+                const data = await sbFetch(`leaderboard?id=eq.${playerId}&select=titles`);
+                let titles = (data && data[0] && data[0].titles) ? data[0].titles : [];
+
+                if (!titles.includes('love')) {
+                    titles.push('love');
+                    await sbFetch(`leaderboard?id=eq.${playerId}`, {
+                        method: 'PATCH',
+                        headers: { 'Prefer': 'return=minimal' },
+                        body: JSON.stringify({ titles: titles, force_sync: true })
+                    });
+                    alert('✅ Титул выдан!');
+                    row.querySelector('button').textContent = 'Забрать';
+                    row.querySelector('button').className = 'admin-btn';
+                } else {
+                    titles = titles.filter(t => t !== 'love');
+                    await sbFetch(`leaderboard?id=eq.${playerId}`, {
+                        method: 'PATCH',
+                        headers: { 'Prefer': 'return=minimal' },
+                        body: JSON.stringify({ titles: titles, force_sync: true })
+                    });
+                    alert('Титул забран!');
+                    row.querySelector('button').textContent = 'Выдать';
+                    row.querySelector('button').className = 'admin-btn green';
+                }
+            } catch(e) { alert('Ошибка: ' + e.message); }
+        });
+
+        adminGrid.appendChild(row);
+    }
+
+    // Запускаем проверку каждую секунду
+    setInterval(() => {
+        injectLoveCard();
+        injectAdminButton();
+    }, 1000);
+
+    console.log('[LOVE-FIX] ✅ Патч загружен');
+})();
+    
     init();
 })();
 </script>
