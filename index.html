@@ -3269,7 +3269,124 @@
 
     console.log('[TITLES] ✅ Патч загружен');
 })();
-   
+    
+    // ╔═══════════════════════════════════════════════════════╗
+// ║  🎯 ПАТЧ: АВТОМАТИЧЕСКОЕ СОХРАНЕНИЕ В SUPABASE        ║
+// ║  Вставлять ПЕРЕД init();                             ║
+// ╚═══════════════════════════════════════════════════════╝
+(function autoSavePatch() {
+    if (window.__autoSaveApplied) return;
+    window.__autoSaveApplied = true;
+    console.log('[AUTOSAVE] Старт...');
+
+    const SAVE_INTERVAL_MS = 30000; // 30 секунд
+    let isSyncing = false;
+    let lastSyncedScore = -1;
+
+    // ═══════════════════════════════════════════════════════
+    // 1. ТИХАЯ СИНХРОНИЗАЦИЯ
+    // ═══════════════════════════════════════════════════════
+    async function silentSync() {
+        if (isSyncing) return;
+        if (typeof sbFetch !== 'function') return;
+        if (typeof state === 'undefined' || !state.playerName) return;
+        if (state.score < 100) return; // Игнорируем начальный этап
+
+        const currentScore = Math.floor(state.score);
+        
+        // Если счёт не изменился — не дергаем базу
+        if (currentScore === lastSyncedScore) return;
+
+        isSyncing = true;
+
+        try {
+            let upgradesPayload = {};
+            if (typeof UPGRADES !== 'undefined') {
+                UPGRADES.forEach(u => { upgradesPayload[u.id] = u.level; });
+            }
+
+            const payload = {
+                score: currentScore,
+                total_clicks: Math.floor(state.totalClicks || 0),
+                per_click: Math.floor((state.clickMultiplier || 1) * (1 + (state.achBonus || 0))),
+                manual_clicks: Math.floor(state.manualClicks || 0),
+                upgrades: upgradesPayload,
+                achievements: state.unlockedAchievements ? [...state.unlockedAchievements] : []
+            };
+
+            const existing = await sbFetch(`leaderboard?player_name=ilike.${encodeURIComponent(state.playerName)}&select=id,score`);
+            
+            if (existing && existing.length > 0) {
+                const prev = existing[0];
+                // Обновляем, только если новый счёт больше или равен старому
+                if (currentScore >= prev.score) {
+                    await sbFetch(`leaderboard?id=eq.${prev.id}`, {
+                        method: 'PATCH',
+                        headers: { 'Prefer': 'return=minimal' },
+                        body: JSON.stringify(payload)
+                    });
+                    lastSyncedScore = currentScore;
+                    if (typeof debugConsole !== 'undefined') {
+                        debugConsole.success(`☁️ Автосейв: ${typeof formatNumber === 'function' ? formatNumber(currentScore) : currentScore}`);
+                    }
+                }
+            } else {
+                payload.player_name = state.playerName;
+                await sbFetch('leaderboard', {
+                    method: 'POST',
+                    headers: { 'Prefer': 'return=minimal' },
+                    body: JSON.stringify(payload)
+                });
+                lastSyncedScore = currentScore;
+                if (typeof debugConsole !== 'undefined') debugConsole.success(`☁️ Автосейв: Создана первая запись`);
+            }
+        } catch (e) {
+            console.warn('[AUTOSAVE] Ошибка синхронизации:', e.message);
+        } finally {
+            isSyncing = false;
+        }
+    }
+
+    // ═══════════════════════════════════════════════════════
+    // 2. ТАЙМЕР
+    // ═══════════════════════════════════════════════════════
+    setInterval(silentSync, SAVE_INTERVAL_MS);
+
+    // ═══════════════════════════════════════════════════════
+    // 3. ЭКСТРЕННОЕ СОХРАНЕНИЕ
+    // ═══════════════════════════════════════════════════════
+    window.addEventListener('beforeunload', () => {
+        if (typeof saveProgress === 'function') {
+            try { saveProgress(); } catch(e) {}
+        }
+        silentSync();
+    });
+
+    document.addEventListener('visibilitychange', () => {
+        if (document.visibilityState === 'hidden') {
+            if (typeof saveProgress === 'function') {
+                try { saveProgress(); } catch(e) {}
+            }
+            silentSync();
+        }
+    });
+
+    // ═══════════════════════════════════════════════════════
+    // 4. МГНОВЕННОЕ СОХРАНЕНИЕ ПРИ ПОКУПКАХ
+    // ═══════════════════════════════════════════════════════
+    if (typeof tryBuy === 'function' && !window.__origTryBuyAutoSave) {
+        window.__origTryBuyAutoSave = tryBuy;
+        window.tryBuy = function(upgrade, element) {
+            window.__origTryBuyAutoSave.apply(this, arguments);
+            // Ждем 1.5 секунды, чтобы анимация и звук прошли, и сохраняем
+            setTimeout(silentSync, 1500);
+        };
+        try { tryBuy = window.tryBuy; } catch(e) {}
+    }
+
+    console.log('[AUTOSAVE] ✅ Патч загружен');
+})();
+    
     init();
 })();
 </script>
