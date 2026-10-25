@@ -3792,6 +3792,195 @@
     console.log('[ADMIN-BP] ✅ Патч загружен');
 })();
    
+   // ╔═══════════════════════════════════════════════════════╗
+// ║  🎯 ПАТЧ: АДМИНКА — УПРАВЛЕНИЕ ТИТУЛАМИ ИГРОКОВ       ║
+// ║  Вставлять ПЕРЕД init();                             ║
+// ╚═══════════════════════════════════════════════════════╝
+(function adminTitlesPatch() {
+    if (window.__adminTitlesApplied) return;
+    window.__adminTitlesApplied = true;
+    console.log('[ADMIN-TITLES] Старт...');
+
+    // Список титулов (должен совпадать с патчем титулов)
+    const TITLES_LIST = [
+        { id: 'novice', name: 'Новичок', icon: '🌱' },
+        { id: 'creator', name: 'Создатель', icon: '🛠️' },
+        { id: 'cosmic', name: 'Космический волк', icon: '🐺' },
+        { id: 'aurora', name: 'Аврора', icon: '🦋' },
+        { id: 'pink', name: 'Розовый пепел', icon: '🌸' },
+        { id: 'plush', name: 'Плюшевый', icon: '🧸' },
+        { id: 'legend', name: 'Легенда', icon: '👑' },
+        { id: 'shame', name: 'Позор', icon: '🤡' },
+        { id: 'love', name: 'Любовь создателя', icon: '💖' }
+    ];
+
+    let currentPlayerTitles = new Set();
+
+    setTimeout(() => {
+        const adminTabs = document.querySelector('.admin-tabs');
+        const adminContent = document.querySelector('.admin-content');
+        if (!adminTabs || !adminContent) return;
+
+        // 1. Добавляем кнопку вкладки
+        if (!adminTabs.querySelector('[data-atab="titles"]')) {
+            const btn = document.createElement('button');
+            btn.className = 'admin-tab';
+            btn.dataset.atab = 'titles';
+            btn.innerHTML = '👑 Титулы';
+            // Вставляем перед вкладкой "Логи"
+            const consoleTab = adminTabs.querySelector('[data-atab="console"]');
+            if (consoleTab) adminTabs.insertBefore(btn, consoleTab);
+            else adminTabs.appendChild(btn);
+
+            // 2. Создаем контент вкладки
+            const pane = document.createElement('div');
+            pane.className = 'admin-pane';
+            pane.id = 'apane-titles';
+            pane.innerHTML = `
+                <div class="admin-section">
+                    <div class="admin-section-title">🔍 Найти игрока для выдачи титулов</div>
+                    <div class="admin-row">
+                        <input type="text" class="admin-input" id="adminTitlePlayerSearch" placeholder="Ник игрока" style="flex:1;">
+                        <button class="admin-btn blue" id="adminTitlePlayerFind">🔍 Найти</button>
+                    </div>
+                </div>
+                
+                <div class="admin-section" id="adminTitlePlayerCard" style="display:none;">
+                    <div class="admin-section-title">👤 Профиль игрока: <span id="adminTitlePlayerName" style="color:#ffd700;"></span></div>
+                    
+                    <div style="display:flex; gap:8px; margin-bottom:12px; margin-top:12px;">
+                        <button class="admin-btn green" id="adminTitleUnlockAll" style="flex:1;">🔓 Открыть все</button>
+                        <button class="admin-btn" id="adminTitleLockAll" style="flex:1; background:#ef4444; color:#fff;">🔒 Забрать все</button>
+                    </div>
+
+                    <div id="adminTitleGrid" style="display:flex; flex-direction:column; gap:8px; max-height:300px; overflow-y:auto; padding-right:4px;"></div>
+                </div>
+            `;
+            adminContent.appendChild(pane);
+
+            // --- ЛОГИКА ---
+
+            // Переключение вкладок админки
+            btn.addEventListener('click', () => {
+                document.querySelectorAll('.admin-tab').forEach(t => t.classList.remove('active'));
+                document.querySelectorAll('.admin-pane').forEach(p => p.classList.remove('active'));
+                btn.classList.add('active');
+                pane.classList.add('active');
+            });
+
+            // Поиск игрока
+            document.getElementById('adminTitlePlayerFind').addEventListener('click', async () => {
+                const name = document.getElementById('adminTitlePlayerSearch').value.trim();
+                if (!name) return;
+
+                try {
+                    if (typeof sbFetch !== 'function') return;
+                    const data = await sbFetch(`leaderboard?player_name=ilike.${encodeURIComponent(name)}&select=id,player_name,titles`);
+                    if (data && data.length > 0) {
+                        const p = data[0];
+                        currentPlayerTitles = new Set(p.titles || []);
+                        
+                        document.getElementById('adminTitlePlayerName').textContent = p.player_name;
+                        document.getElementById('adminTitlePlayerCard').style.display = 'block';
+                        
+                        // Сохраняем id игрока глобально, чтобы обновлять данные
+                        pane.dataset.playerId = p.id;
+
+                        renderTitlesGrid();
+                    } else {
+                        alert('Игрок не найден');
+                    }
+                } catch(e) { alert('Ошибка поиска: ' + e.message); }
+            });
+
+            // Открыть все титулы
+            document.getElementById('adminTitleUnlockAll').addEventListener('click', async () => {
+                const id = pane.dataset.playerId;
+                if (!id) return;
+                if (!confirm('Выдать игроку ВСЕ титулы?')) return;
+
+                TITLES_LIST.forEach(t => currentPlayerTitles.add(t.id));
+                await saveTitlesToDB(id);
+                renderTitlesGrid();
+            });
+
+            // Забрать все титулы
+            document.getElementById('adminTitleLockAll').addEventListener('click', async () => {
+                const id = pane.dataset.playerId;
+                if (!id) return;
+                if (!confirm('ЗАБРАТЬ ВСЕ титулы у игрока?')) return;
+
+                currentPlayerTitles.clear();
+                await saveTitlesToDB(id);
+                renderTitlesGrid();
+            });
+
+            // Отрисовка сетки титулов
+            function renderTitlesGrid() {
+                const grid = document.getElementById('adminTitleGrid');
+                grid.innerHTML = '';
+
+                TITLES_LIST.forEach(t => {
+                    const hasTitle = currentPlayerTitles.has(t.id);
+                    
+                    const row = document.createElement('div');
+                    row.className = 'admin-upgrade-row';
+                    row.style.padding = '10px';
+                    row.style.background = 'rgba(0,0,0,0.3)';
+                    row.style.borderRadius = '10px';
+                    row.style.marginBottom = '6px';
+                    
+                    row.innerHTML = `
+                        <div style="font-size:1.4rem; min-width:30px; text-align:center;">${t.icon}</div>
+                        <div style="flex:1; font-size:.8rem; font-weight:700; color:${hasTitle ? '#10b981' : '#94a3b8'};">${t.name}</div>
+                        <button class="admin-btn ${hasTitle ? '' : 'green'}" style="padding:6px 12px; font-size:.7rem;">
+                            ${hasTitle ? 'Забрать' : 'Выдать'}
+                        </button>
+                    `;
+
+                    const btn = row.querySelector('button');
+                    btn.addEventListener('click', async () => {
+                        const id = pane.dataset.playerId;
+                        if (!id) return;
+
+                        if (hasTitle) {
+                            currentPlayerTitles.delete(t.id);
+                        } else {
+                            currentPlayerTitles.add(t.id);
+                        }
+                        
+                        await saveTitlesToDB(id);
+                        renderTitlesGrid();
+                    });
+
+                    grid.appendChild(row);
+                });
+            }
+
+            // Сохранение в базу
+            async function saveTitlesToDB(playerId) {
+                try {
+                    await sbFetch(`leaderboard?id=eq.${playerId}`, {
+                        method: 'PATCH',
+                        headers: { 'Prefer': 'return=minimal' },
+                        body: JSON.stringify({
+                            titles: [...currentPlayerTitles],
+                            force_sync: true // Чтобы игра подтянула данные при следующем входе
+                        })
+                    });
+                    
+                    if (typeof toast === 'function') toast('Титулы сохранены', 'success');
+                    if (typeof debugConsole !== 'undefined') debugConsole.success(`👑 Титулы игрока обновлены`);
+                } catch(e) {
+                    alert('Ошибка сохранения: ' + e.message);
+                }
+            }
+        }
+    }, 2500); // Ждем, пока игра прогрузит админку
+
+    console.log('[ADMIN-TITLES] ✅ Патч загружен');
+})();
+   
     init();
 })();
 </script>
