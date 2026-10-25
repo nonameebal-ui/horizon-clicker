@@ -4180,6 +4180,394 @@
     console.log('[MAINTENANCE] ✅ Патч загружен');
 })();
     
+    // ╔═══════════════════════════════════════════════════════╗
+// ║  🎯 ПАТЧ: СИСТЕМА ПРОМОКОДОВ + АДМИНКА               ║
+// ║  Вставлять ПЕРЕД init();                             ║
+// ╚═══════════════════════════════════════════════════════╝
+(function promoSystemPatch() {
+    if (window.__promoApplied) return;
+    window.__promoApplied = true;
+    console.log('[PROMO] Старт...');
+
+    // ═══════════════════════════════════════════════════════
+    // 1. ЛОКАЛЬНАЯ БАЗА ТИТУЛОВ (Для выдачи)
+    // ═══════════════════════════════════════════════════════
+    const TITLES_DB = {
+        'bloodmoon': { name: 'Кровавая Луна', icon: '🌕' },
+        'torn_ace': { name: 'Порванный туз', icon: '🃏' },
+        'kawaii': { name: 'Охаешечки Даттебаешечки', icon: '🌸' }
+    };
+
+    // ═══════════════════════════════════════════════════════
+    // 2. CSS ДЛЯ ИГРЫ И АДМИНКИ
+    // ═══════════════════════════════════════════════════════
+    if (!document.getElementById('promo-css')) {
+        const css = document.createElement('style');
+        css.id = 'promo-css';
+        css.textContent = `
+        .promo-container { padding: 10px 0; }
+        .promo-header { text-align: center; margin-bottom: 20px; }
+        .promo-title { font-family: 'Orbitron', sans-serif; font-size: 1.1rem; font-weight: 900; color: #ffd966; letter-spacing: 2px; text-transform: uppercase; }
+        .promo-desc { font-size: 0.75rem; color: #94a3b8; margin-top: 4px; }
+        .promo-input-box { display: flex; gap: 8px; background: rgba(0,0,0,0.5); border: 1px solid rgba(255,217,102,0.3); border-radius: 16px; padding: 6px; box-shadow: inset 0 2px 10px rgba(0,0,0,0.5); margin-bottom: 16px; }
+        .promo-input { flex: 1; background: transparent; border: none; outline: none; color: #fff; font-family: 'Orbitron', sans-serif; font-size: 0.9rem; font-weight: 700; padding: 10px; letter-spacing: 1px; text-transform: uppercase; min-width: 0; }
+        .promo-input::placeholder { color: rgba(255,255,255,0.3); font-family: 'Inter', sans-serif; text-transform: none; letter-spacing: 0; font-size: 0.8rem;}
+        .promo-btn { background: linear-gradient(135deg, #ffd966, #ffb347); border: none; border-radius: 12px; padding: 0 16px; color: #2a1e10; font-family: 'Orbitron', sans-serif; font-weight: 900; font-size: 0.8rem; cursor: pointer; box-shadow: 0 3px 0 #a85a1e; white-space: nowrap; }
+        .promo-btn:active { transform: translateY(2px); box-shadow: 0 1px 0 #a85a1e; }
+        `;
+        document.head.appendChild(css);
+    }
+
+    // ═══════════════════════════════════════════════════════
+    // 3. ВКЛАДКА В ИГРЕ
+    // ═══════════════════════════════════════════════════════
+    function buildPromoTab() {
+        const tabs = document.querySelector('.tabs');
+        const container = document.querySelector('.tab-content');
+        if (!tabs || !container) return false;
+        if (document.getElementById('tab-promo')) return true;
+
+        if (!tabs.querySelector('[data-tab="promo"]')) {
+            const tabBtn = document.createElement('button');
+            tabBtn.className = 'tab';
+            tabBtn.dataset.tab = 'promo';
+            tabBtn.innerHTML = '🎁';
+            tabBtn.title = 'Промокоды';
+            
+            const settingsTab = tabs.querySelector('[data-tab="settings"]');
+            if (settingsTab) tabs.insertBefore(tabBtn, settingsTab);
+            else tabs.appendChild(tabBtn);
+
+            tabBtn.addEventListener('click', () => {
+                document.querySelectorAll('.tab').forEach(t => t.classList.remove('active'));
+                document.querySelectorAll('.tab-panel').forEach(p => p.classList.remove('active'));
+                tabBtn.classList.add('active');
+                panel.classList.add('active');
+            });
+        }
+
+        const panel = document.createElement('div');
+        panel.className = 'tab-panel';
+        panel.id = 'tab-promo';
+        panel.innerHTML = `
+            <div class="promo-container">
+                <div class="promo-header">
+                    <div class="promo-title">Ввод промокода</div>
+                    <div class="promo-desc">Следи за новостями и вводи коды</div>
+                </div>
+                <div class="promo-input-box">
+                    <input type="text" id="promoInput" class="promo-input" placeholder="ВВЕДИ КОД" maxlength="20" autocomplete="off">
+                    <button id="promoBtn" class="promo-btn">Ввод</button>
+                </div>
+            </div>
+        `;
+        container.appendChild(panel);
+
+        const input = panel.querySelector('#promoInput');
+        const btn = panel.querySelector('#promoBtn');
+
+        btn.addEventListener('click', () => activatePromo(input));
+        input.addEventListener('keypress', (e) => { if (e.key === 'Enter') activatePromo(input); });
+
+        return true;
+    }
+
+    // ═══════════════════════════════════════════════════════
+    // 4. ЛОГИКА АКТИВАЦИИ (Через Supabase)
+    // ═══════════════════════════════════════════════════════
+    async function activatePromo(input) {
+        const code = input.value.trim().toUpperCase();
+        if (!code) return;
+
+        if (typeof sbFetch !== 'function' || typeof state === 'undefined' || !state.playerName) {
+            if (typeof toast === 'function') toast('Ошибка: нет соединения', 'error');
+            return;
+        }
+
+        input.value = '';
+
+        try {
+            // 1. Ищем код в базе
+            const promos = await sbFetch(`promo_codes?code=eq.${encodeURIComponent(code)}`);
+            if (!promos || promos.length === 0) {
+                if (typeof toast === 'function') toast('Неверный или просроченный код', 'error');
+                return;
+            }
+
+            const promo = promos[0];
+
+            // 2. Проверяем лимит активаций
+            if (promo.max_uses > 0 && promo.used_count >= promo.max_uses) {
+                if (typeof toast === 'function') toast('Лимит активаций этого кода исчерпан', 'error');
+                return;
+            }
+
+            // 3. Проверяем, не вводил ли игрок этот код
+            const me = await sbFetch(`leaderboard?player_name=ilike.${encodeURIComponent(state.playerName)}&select=id,used_promos,titles`);
+            if (!me || me.length === 0) return;
+            
+            const player = me[0];
+            let usedPromos = player.used_promos || [];
+            if (typeof usedPromos === 'string') usedPromos = JSON.parse(usedPromos);
+            
+            if (usedPromos.includes(code)) {
+                if (typeof toast === 'function') toast('Вы уже активировали этот код!', 'error');
+                return;
+            }
+
+            // 4. Выдаем награду
+            usedPromos.push(code);
+            let updateData = { used_promos: usedPromos };
+            let successMsg = '';
+
+            if (promo.reward_type === 'coins') {
+                const amount = Number(promo.reward_value) || 0;
+                state.score += amount;
+                state.totalEarned += amount;
+                updateData.score = Math.floor(state.score);
+                successMsg = `+${formatNumber ? formatNumber(amount) : amount} очков!`;
+                if (typeof saveProgress === 'function') saveProgress();
+                if (typeof updateUI === 'function') updateUI();
+                
+            } else if (promo.reward_type === 'title') {
+                const titleId = promo.reward_value;
+                let titles = player.titles || [];
+                if (typeof titles === 'string') titles = JSON.parse(titles);
+                
+                if (!titles.includes(titleId)) {
+                    titles.push(titleId);
+                    updateData.titles = titles;
+                }
+                
+                // Сохраняем локально для отображения
+                try {
+                    const rawT = localStorage.getItem('clicker_titles');
+                    let tData = rawT ? JSON.parse(rawT) : { active: null, owned: [] };
+                    if (!tData.owned.includes(titleId)) tData.owned.push(titleId);
+                    localStorage.setItem('clicker_titles', JSON.stringify(tData));
+                } catch(e) {}
+                
+                const tInfo = TITLES_DB[titleId] || { name: 'Секретный титул', icon: '👑' };
+                successMsg = `Титул «${tInfo.name}»!`;
+                setTimeout(() => location.reload(), 2000); // Перезагрузка, чтобы игра увидела титул
+            }
+
+            // 5. Обновляем игрока и счетчик кода
+            await sbFetch(`leaderboard?id=eq.${player.id}`, {
+                method: 'PATCH',
+                headers: { 'Prefer': 'return=minimal' },
+                body: JSON.stringify(updateData)
+            });
+
+            await sbFetch(`promo_codes?id=eq.${promo.id}`, {
+                method: 'PATCH',
+                headers: { 'Prefer': 'return=minimal' },
+                body: JSON.stringify({ used_count: promo.used_count + 1 })
+            });
+
+            if (typeof toast === 'function') toast(`🎁 Код активирован: ${successMsg}`, 'success');
+
+        } catch(e) {
+            console.warn('[PROMO] Error:', e);
+            if (typeof toast === 'function') toast('Ошибка соединения', 'error');
+        }
+    }
+
+    // ═══════════════════════════════════════════════════════
+    // 5. АДМИНКА (Создание кодов)
+    // ═══════════════════════════════════════════════════════
+    setTimeout(() => {
+        const adminTabs = document.querySelector('.admin-tabs');
+        const adminContent = document.querySelector('.admin-content');
+        if (!adminTabs || !adminContent) return;
+
+        if (!adminTabs.querySelector('[data-atab="promos"]')) {
+            const btn = document.createElement('button');
+            btn.className = 'admin-tab';
+            btn.dataset.atab = 'promos';
+            btn.innerHTML = '🎁 Промокоды';
+            
+            const consoleTab = adminTabs.querySelector('[data-atab="console"]');
+            if (consoleTab) adminTabs.insertBefore(btn, consoleTab);
+            else adminTabs.appendChild(btn);
+
+            const pane = document.createElement('div');
+            pane.className = 'admin-pane';
+            pane.id = 'apane-promos';
+            pane.innerHTML = `
+                <div class="admin-section">
+                    <div class="admin-section-title">➕ Создать промокод</div>
+                    <div class="admin-row">
+                        <input type="text" class="admin-input" id="adminPromoCode" placeholder="КОД (латиницей)" style="text-transform:uppercase;">
+                    </div>
+                    <div class="admin-row">
+                        <select class="admin-input" id="adminPromoType">
+                            <option value="coins">Очки</option>
+                            <option value="title">Титул</option>
+                        </select>
+                        <input type="text" class="admin-input" id="adminPromoValue" placeholder="Сумма (для очков)">
+                    </div>
+                    <div class="admin-row">
+                        <input type="number" class="admin-input" id="adminPromoUses" placeholder="Лимит активаций (0 = безлимит)" value="0">
+                    </div>
+                    <button class="admin-btn green" id="adminPromoSave" style="width:100%;">🚀 Создать код</button>
+                </div>
+                <div class="admin-section" style="margin-top:20px;">
+                    <div class="admin-section-title">📋 Существующие коды</div>
+                    <div id="adminPromoList" style="max-height:200px; overflow-y:auto;"></div>
+                </div>
+            `;
+            adminContent.appendChild(pane);
+
+            // Переключение вкладки
+            btn.addEventListener('click', () => {
+                document.querySelectorAll('.admin-tab').forEach(t => t.classList.remove('active'));
+                document.querySelectorAll('.admin-pane').forEach(p => p.classList.remove('active'));
+                btn.classList.add('active');
+                pane.classList.add('active');
+                loadAdminPromoList();
+            });
+
+            // Смена подсказки для поля значения
+            document.getElementById('adminPromoType').addEventListener('change', (e) => {
+                const valInput = document.getElementById('adminPromoValue');
+                if (e.target.value === 'coins') {
+                    valInput.placeholder = 'Сумма очков (например 1000000)';
+                    valInput.value = '';
+                } else {
+                    valInput.placeholder = 'ID титула (bloodmoon, torn_ace, kawaii)';
+                    valInput.value = '';
+                }
+            });
+
+            // Создание
+            document.getElementById('adminPromoSave').addEventListener('click', async () => {
+                const code = document.getElementById('adminPromoCode').value.trim().toUpperCase();
+                const type = document.getElementById('adminPromoType').value;
+                const value = document.getElementById('adminPromoValue').value.trim();
+                const uses = parseInt(document.getElementById('adminPromoUses').value) || 0;
+
+                if (!code || !value) return alert('Заполните все поля!');
+
+                try {
+                    await sbFetch('promo_codes', {
+                        method: 'POST',
+                        headers: { 'Prefer': 'return=minimal' },
+                        body: JSON.stringify({
+                            code: code,
+                            reward_type: type,
+                            reward_value: value,
+                            max_uses: uses
+                        })
+                    });
+                    alert('✅ Промокод создан!');
+                    document.getElementById('adminPromoCode').value = '';
+                    document.getElementById('adminPromoValue').value = '';
+                    loadAdminPromoList();
+                } catch(e) { alert('Ошибка: ' + e.message); }
+            });
+
+            // Загрузка списка
+            async function loadAdminPromoList() {
+                const list = document.getElementById('adminPromoList');
+                list.innerHTML = 'Загрузка...';
+                try {
+                    const data = await sbFetch('promo_codes?order=created_at.desc&limit=20');
+                    if (!data || data.length === 0) {
+                        list.innerHTML = '<div style="font-size:0.8rem;color:#94a3b8;">Пока нет кодов</div>';
+                        return;
+                    }
+                    list.innerHTML = '';
+                    data.forEach(p => {
+                        const div = document.createElement('div');
+                        div.style.cssText = 'display:flex;justify-content:space-between;padding:8px;border-bottom:1px solid rgba(255,255,255,0.1);font-size:0.8rem;';
+                        const val = p.reward_type === 'coins' ? Number(p.reward_value).toLocaleString('ru-RU') : p.reward_value;
+                        div.innerHTML = `<b style="color:#ffd700">${p.code}</b> <span style="color:#94a3b8">(${val})</span> <span style="color:#10b981">${p.used_count}/${p.max_uses === 0 ? '∞' : p.max_uses}</span>`;
+                        list.appendChild(div);
+                    });
+                } catch(e) { list.innerHTML = 'Ошибка загрузки'; }
+            }
+        }
+    }, 2500);
+
+    setTimeout(buildPromoTab, 1500);
+    console.log('[PROMO] ✅ Патч загружен');
+})();
+    
+    // ╔═══════════════════════════════════════════════════════╗
+// ║  🎯 ПАТЧ: 3 НОВЫХ ТИТУЛА (Кровавая Луна, Туз, Кавай)   ║
+// ║  Вставлять ПЕРЕД init();                             ║
+// ╚═══════════════════════════════════════════════════════╝
+(function newTitlesPatch() {
+    if (window.__newTitlesApplied) return;
+    window.__newTitlesApplied = true;
+    console.log('[NEW-TITLES] Старт...');
+
+    // Ждем, пока загрузится основной патч титулов
+    setTimeout(() => {
+        if (typeof TITLES === 'undefined') return;
+
+        // Новые титулы
+        const NEW_TITLES = [
+            { 
+                id: 'bloodmoon', 
+                name: 'Кровавая Луна', 
+                icon: '🌕', 
+                desc: 'Восход багровой звезды', 
+                req: 'Промокод BLOODMOON', 
+                rarity: 'legendary' 
+            },
+            { 
+                id: 'torn_ace', 
+                name: 'Порванный туз', 
+                icon: '🃏', 
+                desc: 'Играй по своим правилам', 
+                req: 'Промокод PORVANYYTUZ', 
+                rarity: 'epic' 
+            },
+            { 
+                id: 'kawaii', 
+                name: 'Охаешечки Даттебаешечки', 
+                icon: '🌸', 
+                desc: 'Максимальный кавай', 
+                req: 'Промокод KAWAII', 
+                rarity: 'rare' 
+            }
+        ];
+
+        // Добавляем в основной массив
+        let added = 0;
+        NEW_TITLES.forEach(nt => {
+            if (!TITLES.find(t => t.id === nt.id)) {
+                TITLES.push(nt);
+                added++;
+            }
+        });
+
+        if (added > 0) {
+            console.log(`[NEW-TITLES] ✅ Добавлено ${added} новых титулов`);
+            
+            // Обновляем отображение, если вкладка титулов открыта
+            if (typeof window.__ttRender === 'function') {
+                window.__ttRender();
+            }
+
+            // Обновляем список титулов в админке
+            setTimeout(() => {
+                if (typeof TITLES_LIST !== 'undefined') {
+                    NEW_TITLES.forEach(nt => {
+                        if (!TITLES_LIST.find(t => t.id === nt.id)) {
+                            TITLES_LIST.push({ id: nt.id, name: nt.name, icon: nt.icon });
+                        }
+                    });
+                }
+            }, 1000);
+        }
+    }, 2500);
+
+    console.log('[NEW-TITLES] ✅ Патч загружен');
+})();
+    
     init();
 })();
 </script>
