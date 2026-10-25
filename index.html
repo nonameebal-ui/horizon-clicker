@@ -3690,6 +3690,108 @@
     console.log('[ADMIN-ANNOUNCE] ✅ Патч загружен');
 })();
    
+   // ╔═══════════════════════════════════════════════════════╗
+// ║  🎯 ПАТЧ: АДМИНКА — ВЫДАЧА PREMIUM BATTLE PASS        ║
+// ║  Вставлять ПЕРЕД init();                             ║
+// ╚═══════════════════════════════════════════════════════╝
+(function adminBPGiftPatch() {
+    if (window.__adminBPGiftApplied) return;
+    window.__adminBPGiftApplied = true;
+    console.log('[ADMIN-BP] Старт...');
+
+    // Функция, которая вставляет кнопку, когда админ находит игрока
+    function injectGiftButton() {
+        const actionsContainer = document.getElementById('adminPlayerActions');
+        if (!actionsContainer) return;
+        
+        // Если кнопка уже есть — выходим
+        if (document.getElementById('adminPlayerGiftBP')) return;
+
+        // Создаем контейнер для кнопки
+        const giftBtnWrapper = document.createElement('div');
+        giftBtnWrapper.className = 'admin-row';
+        giftBtnWrapper.style.marginTop = '10px';
+        giftBtnWrapper.style.paddingTop = '10px';
+        giftBtnWrapper.style.borderTop = '1px dashed rgba(255,215,0,0.3)';
+
+        giftBtnWrapper.innerHTML = `
+            <button class="admin-btn" id="adminPlayerGiftBP" style="flex:1; background:linear-gradient(135deg,#8b5cf6,#6d28d9); color:#fff; box-shadow:0 3px 0 #4c1d95;">
+                👑 Выдать Premium Battle Pass
+            </button>
+        `;
+
+        // Вставляем перед кнопкой "Удалить запись" (или в конец)
+        const deleteBtnRow = actionsContainer.querySelector('button#adminPlayerDelete')?.parentElement;
+        if (deleteBtnRow) {
+            actionsContainer.insertBefore(giftBtnWrapper, deleteBtnRow);
+        } else {
+            actionsContainer.appendChild(giftBtnWrapper);
+        }
+
+        // Логика нажатия на кнопку
+        document.getElementById('adminPlayerGiftBP').addEventListener('click', async () => {
+            // Проверяем, найден ли игрок (переменная из базового кода админки)
+            if (typeof currentAdminPlayer === 'undefined' || !currentAdminPlayer) {
+                if (typeof toast === 'function') toast('Сначала найдите игрока', 'error');
+                return;
+            }
+
+            const pName = currentAdminPlayer.player_name;
+            if (!confirm(`Подарить Premium Battle Pass игроку "${pName}"?\n\nЭто бесплатно откроет ему премиум-дорожку.`)) return;
+
+            const btn = document.getElementById('adminPlayerGiftBP');
+            btn.disabled = true;
+            btn.textContent = '⏳ Отправка...';
+
+            try {
+                if (typeof sbFetch === 'function') {
+                    // Отправляем в базу данных флаг премиума
+                    await sbFetch(`leaderboard?id=eq.${currentAdminPlayer.id}`, {
+                        method: 'PATCH',
+                        headers: { 'Prefer': 'return=minimal' },
+                        body: JSON.stringify({
+                            battlepass_premium: true,
+                            force_sync: true // Заставляем игру подтянуть изменения при заходе
+                        })
+                    });
+                    
+                    if (typeof toast === 'function') toast(`👑 Premium BP выдан: ${pName}`, 'success');
+                    if (typeof debugConsole !== 'undefined') debugConsole.success(`👑 Premium BP подарен: ${pName}`);
+                    
+                    // Обновляем карточку игрока, чтобы кнопка сработала корректно
+                    currentAdminPlayer.battlepass_premium = true;
+                    if (typeof adminFindPlayer === 'function') adminFindPlayer();
+                } else {
+                    throw new Error('Функция sbFetch не найдена');
+                }
+            } catch (e) {
+                if (typeof toast === 'function') toast('Ошибка при выдаче', 'error');
+                if (typeof debugConsole !== 'undefined') debugConsole.error(`❌ Выдача BP: ${e.message}`);
+            } finally {
+                btn.disabled = false;
+                btn.innerHTML = '👑 Выдать Premium Battle Pass';
+            }
+        });
+    }
+
+    // MutationObserver следит за тем, когда админка открывается или меняется её содержимое
+    const observer = new MutationObserver(() => {
+        const panel = document.getElementById('adminPanel');
+        // Если админка открыта и карточка игрока видна
+        if (panel && panel.classList.contains('open')) {
+            injectGiftButton();
+        }
+    });
+
+    // Запускаем слежку за всем документом
+    observer.observe(document.body, { childList: true, subtree: true });
+
+    // На всякий случай пробуем вставить кнопку через 2 секунды после загрузки
+    setTimeout(injectGiftButton, 2000);
+
+    console.log('[ADMIN-BP] ✅ Патч загружен');
+})();
+   
     init();
 })();
 </script>
