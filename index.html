@@ -3981,6 +3981,92 @@
     console.log('[ADMIN-TITLES] ✅ Патч загружен');
 })();
    
+   // ╔═══════════════════════════════════════════════════════╗
+// ║  🎯 ПАТЧ-ФИКС: ВЫДАЧА ТИТУЛА ЗА PREMIUM BP            ║
+// ║  Вставлять ПЕРЕД init();                             ║
+// ╚═══════════════════════════════════════════════════════╝
+(function fixPremiumTitlePatch() {
+    if (window.__fixPremiumTitleApplied) return;
+    window.__fixPremiumTitleApplied = true;
+    console.log('[FIX-PREMIUM-TITLE] Старт...');
+
+    // Ждем, пока патчи загрузятся
+    setTimeout(() => {
+        // Функция проверки: куплен ли премиум
+        function checkPremiumStatus() {
+            // 1. Проверяем localStorage (где патч BP хранит данные)
+            try {
+                const raw = localStorage.getItem('clicker_battlepass');
+                if (raw) {
+                    const data = JSON.parse(raw);
+                    if (data.premium === true) return true;
+                }
+            } catch(e) {}
+            
+            // 2. Проверяем глобальную переменную, если её кто-то выставил
+            if (window.__bpGetPremium && window.__bpGetPremium()) return true;
+
+            return false;
+        }
+
+        // Функция выдачи титула
+        function grantPinkTitle() {
+            // Проверяем, есть ли у нас доступ к патчу титулов
+            if (!window.__titlesState && typeof titleState === 'undefined') {
+                console.warn('[FIX-PREMIUM-TITLE] Титулы не найдены');
+                return;
+            }
+
+            // Получаем доступ к состоянию титулов (оно внутри патча, но мы можем его достать)
+            // Для этого нам нужен хак: перезагружаем страницу, если титул не выдан, 
+            // но лучше сделать это через localStorage.
+            
+            // Если у тебя в патче титулов есть сохранение в localStorage 'clicker_titles'
+            try {
+                const raw = localStorage.getItem('clicker_titles');
+                let titlesData = raw ? JSON.parse(raw) : { active: null, owned: [] };
+                
+                if (!titlesData.owned.includes('pink')) {
+                    titlesData.owned.push('pink');
+                    localStorage.setItem('clicker_titles', JSON.stringify(titlesData));
+                    console.log('[FIX-PREMIUM-TITLE] ✅ Титул "Розовый пепел" выдан!');
+                    
+                    if (typeof toast === 'function') toast('👑 Открыт титул: Розовый пепел!', 'success');
+                    
+                    // Если патч титулов уже загружен — обновляем UI
+                    if (typeof window.__ttRender === 'function') {
+                        window.__ttRender();
+                    }
+                    if (typeof renderTitles === 'function') {
+                        try { renderTitles(); } catch(e) {}
+                    }
+                }
+            } catch(e) {
+                console.error('[FIX-PREMIUM-TITLE] Ошибка:', e);
+            }
+        }
+
+        // Проверяем каждые 2 секунды
+        setInterval(() => {
+            if (checkPremiumStatus()) {
+                grantPinkTitle();
+            }
+        }, 2000);
+
+        // Также проверяем при клике на вкладку титулов
+        document.querySelectorAll('.tab').forEach(tab => {
+            if (tab.dataset.tab === 'titles') {
+                tab.addEventListener('click', () => {
+                    if (checkPremiumStatus()) grantPinkTitle();
+                });
+            }
+        });
+
+    }, 3500); // Ждем, пока все патчи точно загрузятся
+
+    console.log('[FIX-PREMIUM-TITLE] ✅ Патч загружен');
+})();
+   
     init();
 })();
 </script>
