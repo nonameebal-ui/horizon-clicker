@@ -4059,75 +4059,19 @@
 
     console.log('[FIX-TITLE-DB] ✅ Патч загружен');
 })();
-    
-    // ╔═══════════════════════════════════════════════════════╗
-// ║  🎯 ПАТЧ: ДОБАВЛЕНИЕ ТИТУЛА "ЛЮБОВЬ СОЗДАТЕЛЯ"        ║
+   
+   // ╔═══════════════════════════════════════════════════════╗
+// ║  🎯 ПАТЧ: ТИТУЛ "ЛЮБОВЬ СОЗДАТЕЛЯ" (FINAL)           ║
 // ║  Вставлять ПЕРЕД init();                             ║
 // ╚═══════════════════════════════════════════════════════╝
-(function addLoveTitlePatch() {
-    if (window.__addLoveTitleApplied) return;
-    window.__addLoveTitleApplied = true;
-    console.log('[LOVE-TITLE] Старт...');
+(function loveTitleFinalPatch() {
+    if (window.__loveFinalApplied) return;
+    window.__loveFinalApplied = true;
+    console.log('[LOVE-FINAL] Старт...');
 
-    setTimeout(() => {
-        // 1. Проверяем, что патч титулов загружен (там есть массив TITLES)
-        if (typeof TITLES !== 'undefined' && !TITLES.find(t => t.id === 'love')) {
-            TITLES.push({
-                id: 'love',
-                name: 'Любовь создателя',
-                icon: '💖',
-                desc: 'Создатель тебя обожает',
-                req: 'Секретное условие',
-                rarity: 'love', // Кастомная редкость
-                lottie: ''
-            });
-            console.log('[LOVE-TITLE] ✅ Титул добавлен в коллекцию игрока');
-            
-            // Перерисовываем вкладку титулов, если она открыта
-            if (typeof renderTitles === 'function') {
-                try { renderTitles(); } catch(e) {}
-            }
-        }
-
-        // 2. Проверяем админку и добавляем титул в список выдачи
-        if (typeof TITLES_LIST !== 'undefined' && !TITLES_LIST.find(t => t.id === 'love')) {
-            TITLES_LIST.push({ id: 'love', name: 'Любовь создателя', icon: '💖' });
-            console.log('[LOVE-TITLE] ✅ Титул добавлен в админку');
-            
-            // Если админка уже отрисована, нужно её обновить
-            // (перерисовка произойдет, когда ты заново откроешь вкладку или обновишь страницу)
-        }
-
-        // 3. Добавляем CSS для розовой редкости и анимации сердечек (если их еще нет)
-        if (!document.getElementById('love-title-css')) {
-            const css = document.createElement('style');
-            css.id = 'love-title-css';
-            css.textContent = `
-.rarity-love { --rarity-color: #ff4d6d; --rarity-gradient: linear-gradient(135deg,#ff4d6d,#ff8fa3, #ff4d6d); }
-.rarity-love.title-card { border-color: rgba(255,77,109,.6); box-shadow: 0 0 30px rgba(255,77,109,.3); }
-.rarity-love.active { border-color: #ff4d6d; box-shadow: 0 0 30px rgba(255,77,109,.6); }
-.rarity-love .title-status { background: rgba(255,77,109,.2); color: #ff4d6d; border-color: #ff4d6d; }
-.heart-particle { position: absolute; color: #ff4d6d; font-size: 10px; pointer-events: none; animation: floatHeart 2s ease-in infinite; opacity: 0; z-index: 10; }
-@keyframes floatHeart { 0% { transform: translateY(0) scale(0.5); opacity: 0; } 20% { opacity: 1; } 100% { transform: translateY(-40px) scale(1.2); opacity: 0; } }
-`;
-            document.head.appendChild(css);
-        }
-
-    }, 3000); // Ждем 3 секунды, чтобы все патчи точно загрузились
-
-    console.log('[LOVE-TITLE] ✅ Патч загружен');
-})();
-    
-    // ╔═══════════════════════════════════════════════════════╗
-// ║  🎯 ФИКС: ТИТУЛ "ЛЮБОВЬ СОЗДАТЕЛЯ" (HTML INJECT)      ║
-// ║  Вставлять ПЕРЕД init();                             ║
-// ╚═══════════════════════════════════════════════════════╝
-(function loveTitleFixPatch() {
-    if (window.__loveTitleFixApplied) return;
-    window.__loveTitleFixApplied = true;
-    console.log('[LOVE-FIX] Старт...');
-
-    // 1. Добавляем CSS (если его нет)
+    // ═══════════════════════════════════════════════════════
+    // 1. CSS
+    // ═══════════════════════════════════════════════════════
     if (!document.getElementById('love-css')) {
         const style = document.createElement('style');
         style.id = 'love-css';
@@ -4142,21 +4086,29 @@
         document.head.appendChild(style);
     }
 
-    // 2. Функция вставки карточки в коллекцию титулов
+    // ═══════════════════════════════════════════════════════
+    // 2. ХРАНИЛИЩЕ
+    // ═══════════════════════════════════════════════════════
+    function getTitlesData() {
+        try {
+            const raw = localStorage.getItem('clicker_titles');
+            return raw ? JSON.parse(raw) : { active: null, owned: [] };
+        } catch(e) { return { active: null, owned: [] }; }
+    }
+    function saveTitlesData(data) {
+        try { localStorage.setItem('clicker_titles', JSON.stringify(data)); } catch(e) {}
+    }
+
+    // ═══════════════════════════════════════════════════════
+    // 3. UI КАРТОЧКА В КОЛЛЕКЦИИ
+    // ═══════════════════════════════════════════════════════
     function injectLoveCard() {
         const grid = document.getElementById('titlesGrid');
         if (!grid || document.getElementById('title-love')) return;
 
-        // Читаем состояние из localStorage
-        let isOwned = false, isActive = false;
-        try {
-            const raw = localStorage.getItem('clicker_titles');
-            if (raw) {
-                const data = JSON.parse(raw);
-                if (data.owned && data.owned.includes('love')) isOwned = true;
-                if (data.active === 'love') isActive = true;
-            }
-        } catch(e) {}
+        const data = getTitlesData();
+        const isOwned = data.owned.includes('love');
+        const isActive = data.active === 'love';
 
         const card = document.createElement('div');
         card.id = 'title-love';
@@ -4178,34 +4130,43 @@
 
         // Анимация сердечек
         const iconWrap = card.querySelector('#love-icon-wrap');
-        setInterval(() => {
-            if (!document.body.contains(iconWrap)) return;
-            const heart = document.createElement('div');
-            heart.className = 'heart-particle';
-            heart.textContent = '❤️';
-            heart.style.left = Math.random() * 40 + 'px';
-            heart.style.bottom = '0px';
-            iconWrap.appendChild(heart);
-            setTimeout(() => heart.remove(), 2000);
-        }, 600);
-
-        // Кнопка "Надеть"
-        if (isOwned && !isActive) {
-            card.querySelector('.tt-btn').addEventListener('click', () => {
-                try {
-                    const raw = localStorage.getItem('clicker_titles');
-                    const data = raw ? JSON.parse(raw) : { active: null, owned: [] };
-                    data.active = 'love';
-                    localStorage.setItem('clicker_titles', JSON.stringify(data));
-                    location.reload();
-                } catch(e) {}
-            });
+        if (!iconWrap.dataset.hearts) {
+            iconWrap.dataset.hearts = "1";
+            setInterval(() => {
+                if (!document.body.contains(iconWrap)) return;
+                const heart = document.createElement('div');
+                heart.className = 'heart-particle';
+                heart.textContent = '❤️';
+                heart.style.left = Math.random() * 40 + 'px';
+                heart.style.bottom = '0px';
+                iconWrap.appendChild(heart);
+                setTimeout(() => heart.remove(), 2000);
+            }, 600);
         }
 
+        // Клик "Надеть"
+        if (isOwned && !isActive) {
+            card.querySelector('.tt-btn').addEventListener('click', () => {
+                const d = getTitlesData();
+                d.active = 'love';
+                saveTitlesData(d);
+                
+                if (typeof sbFetch === 'function' && typeof state !== 'undefined' && state.playerName) {
+                    sbFetch(`leaderboard?player_name=ilike.${encodeURIComponent(state.playerName)}`, {
+                        method: 'PATCH', headers: { 'Prefer': 'return=minimal' },
+                        body: JSON.stringify({ active_title: 'love' })
+                    }).catch(() => {});
+                }
+                if (typeof toast === 'function') toast('💖 Титул «Любовь создателя» надет!', 'success');
+                location.reload();
+            });
+        }
         grid.appendChild(card);
     }
 
-    // 3. Функция вставки кнопки в админку
+    // ═══════════════════════════════════════════════════════
+    // 4. КНОПКА В АДМИНКЕ
+    // ═══════════════════════════════════════════════════════
     function injectAdminButton() {
         const adminGrid = document.getElementById('adminTitleGrid');
         if (!adminGrid || document.getElementById('admin-love-btn')) return;
@@ -4223,17 +4184,14 @@
         row.querySelector('button').addEventListener('click', async () => {
             const playerId = document.getElementById('apane-titles').dataset.playerId;
             if (!playerId) return alert('Сначала найдите игрока!');
-
             try {
                 const data = await sbFetch(`leaderboard?id=eq.${playerId}&select=titles`);
                 let titles = (data && data[0] && data[0].titles) ? data[0].titles : [];
-
                 if (!titles.includes('love')) {
                     titles.push('love');
                     await sbFetch(`leaderboard?id=eq.${playerId}`, {
-                        method: 'PATCH',
-                        headers: { 'Prefer': 'return=minimal' },
-                        body: JSON.stringify({ titles: titles, force_sync: true })
+                        method: 'PATCH', headers: { 'Prefer': 'return=minimal' },
+                        body: JSON.stringify({ titles, force_sync: true })
                     });
                     alert('✅ Титул выдан!');
                     row.querySelector('button').textContent = 'Забрать';
@@ -4241,9 +4199,8 @@
                 } else {
                     titles = titles.filter(t => t !== 'love');
                     await sbFetch(`leaderboard?id=eq.${playerId}`, {
-                        method: 'PATCH',
-                        headers: { 'Prefer': 'return=minimal' },
-                        body: JSON.stringify({ titles: titles, force_sync: true })
+                        method: 'PATCH', headers: { 'Prefer': 'return=minimal' },
+                        body: JSON.stringify({ titles, force_sync: true })
                     });
                     alert('Титул забран!');
                     row.querySelector('button').textContent = 'Выдать';
@@ -4251,19 +4208,40 @@
                 }
             } catch(e) { alert('Ошибка: ' + e.message); }
         });
-
         adminGrid.appendChild(row);
     }
 
-    // Запускаем проверку каждую секунду
-    setInterval(() => {
-        injectLoveCard();
-        injectAdminButton();
-    }, 1000);
+    // ═══════════════════════════════════════════════════════
+    // 5. ЗАГРУЗКА ИЗ SUPABASE
+    // ═══════════════════════════════════════════════════════
+    async function syncLoveFromDB() {
+        if (typeof sbFetch !== 'function' || typeof state === 'undefined' || !state.playerName) return;
+        try {
+            const data = await sbFetch(`leaderboard?player_name=ilike.${encodeURIComponent(state.playerName)}&select=titles`);
+            if (data && data.length > 0 && data[0].titles) {
+                const dbTitles = data[0].titles;
+                if (dbTitles.includes('love')) {
+                    const localData = getTitlesData();
+                    if (!localData.owned.includes('love')) {
+                        localData.owned.push('love');
+                        saveTitlesData(localData);
+                        console.log('[LOVE-FINAL] ✅ Титул получен из базы');
+                        if (typeof toast === 'function') toast('💖 Вам подарен титул «Любовь создателя»!', 'success');
+                        setTimeout(() => location.reload(), 1500);
+                    }
+                }
+            }
+        } catch(e) {}
+    }
 
-    console.log('[LOVE-FIX] ✅ Патч загружен');
+    // Запуск
+    setInterval(() => { injectLoveCard(); injectAdminButton(); }, 1000);
+    setTimeout(syncLoveFromDB, 3000);
+    setInterval(syncLoveFromDB, 15000); // Проверяем каждые 15 сек
+
+    console.log('[LOVE-FINAL] ✅ Патч загружен');
 })();
-    
+   
     init();
 })();
 </script>
