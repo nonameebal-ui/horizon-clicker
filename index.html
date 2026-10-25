@@ -2469,7 +2469,95 @@
 
     console.log('[BATTLEPASS] ✅ Патч v2 загружен');
 })();
+   
+   // ╔═══════════════════════════════════════════════════════╗
+// ║  🎯 ПАТЧ: ТАЙМЕР СЕЗОНА BATTLE PASS (ЧИСТЫЙ)          ║
+// ║  Вставлять ПЕРЕД init();                             ║
+// ╚═══════════════════════════════════════════════════════╝
+(function bpTimerPatch() {
+    if (window.__bpTimerApplied) return;
+    window.__bpTimerApplied = true;
+    console.log('[BP-TIMER] Старт...');
+
+    const SEASON_DAYS = 30;
+    const SEASON_MS = SEASON_DAYS * 24 * 60 * 60 * 1000;
     
+    // Привязка старта к первому заходу
+    let seasonStart = Date.now();
+    try {
+        const savedStart = localStorage.getItem('clicker_season_start');
+        if (savedStart) seasonStart = parseInt(savedStart, 10);
+        else localStorage.setItem('clicker_season_start', seasonStart.toString());
+    } catch(e) {}
+
+    function getEndTime() { return seasonStart + SEASON_MS; }
+    
+    function getTimeLeft() {
+        const left = getEndTime() - Date.now();
+        if (left <= 0) return null;
+        const d = Math.floor(left / (1000 * 60 * 60 * 24));
+        const h = Math.floor((left % (1000 * 60 * 60 * 24)) / (1000 * 60 * 60));
+        const m = Math.floor((left % (1000 * 60 * 60)) / (1000 * 60));
+        return { d, h, m, left };
+    }
+
+    // Вставляем CSS
+    if (!document.getElementById('bp-timer-css')) {
+        const style = document.createElement('style');
+        style.id = 'bp-timer-css';
+        style.textContent = `
+.bp-season-timer {
+    display: flex; align-items: center; justify-content: center; gap: 6px;
+    margin-top: 12px; padding: 8px 14px;
+    background: rgba(0,0,0,0.4); border-radius: 12px;
+    border: 1px solid rgba(255,255,255,0.1);
+    font-family: 'Inter', sans-serif; font-size: 0.7rem; font-weight: 700;
+    color: #94a3b8; position: relative; z-index: 1; width: 100%;
+}
+.bp-season-timer b { color: #ffd966; font-family: 'Orbitron', sans-serif; font-size: 0.75rem; }
+.bp-season-timer.warn { border-color: rgba(239,68,68,0.5); background: rgba(239,68,68,0.1); }
+.bp-season-timer.warn b { color: #ef4444; }
+`;
+        document.head.appendChild(style);
+    }
+
+    // Рендер таймера
+    function updateUI() {
+        const el = document.getElementById('bpSeasonTimer');
+        if (!el) return;
+        
+        const t = getTimeLeft();
+        if (!t) {
+            el.innerHTML = `🏁 <b>Сезон завершен</b>`;
+            el.classList.add('warn');
+            return;
+        }
+
+        const isWarn = t.left < 3 * 24 * 60 * 60 * 1000;
+        el.classList.toggle('warn', isWarn);
+        el.innerHTML = `⏳ До конца сезона: <b>${t.d}д ${t.h}ч ${t.m}м</b>`;
+    }
+
+    // Вставляем элемент в шапку (если её нет)
+    function inject() {
+        const hero = document.querySelector('#tab-battlepass .bp-hero');
+        if (!hero) return;
+        
+        if (!document.getElementById('bpSeasonTimer')) {
+            const div = document.createElement('div');
+            div.id = 'bpSeasonTimer';
+            div.className = 'bp-season-timer';
+            hero.appendChild(div);
+        }
+        updateUI();
+    }
+
+    // Следим за появлением шапки (раз в секунду)
+    setInterval(inject, 1000);
+
+    console.log('[BP-TIMER] ✅ Патч загружен');
+})();
+   
     // ╔═══════════════════════════════════════════════════════╗
 // ║  🎯 ПАТЧ: ОЧИСТКА БИТЫХ ДОСТИЖЕНИЙ                    ║
 // ║  Вставлять ПЕРЕД init();                             ║
