@@ -3976,6 +3976,210 @@
     console.log('[FIX-TITLE-DB] ✅ Патч загружен');
 })();
     
+    // ╔═══════════════════════════════════════════════════════╗
+// ║  🎯 ПАТЧ: ТЕХ. ПЕРЕРЫВ + АДМИНКА                      ║
+// ║  Вставлять ПЕРЕД init();                             ║
+// ╚═══════════════════════════════════════════════════════╝
+(function maintenancePatch() {
+    if (window.__maintenanceApplied) return;
+    window.__maintenanceApplied = true;
+    console.log('[MAINTENANCE] Старт...');
+
+    const ADMIN_NICK = 'pider'; // Твой ник, кому можно играть
+
+    // ═══════════════════════════════════════════════════════
+    // 1. ПРОВЕРКА СТАТУСА (Блокировка игры)
+    // ═══════════════════════════════════════════════════════
+    async function checkMaintenanceStatus() {
+        // Если игрок еще не авторизован, ждем
+        if (typeof state === 'undefined') {
+            setTimeout(checkMaintenanceStatus, 500);
+            return;
+        }
+
+        // Если это админ — пропускаем проверку, он может играть
+        if (state.playerName && state.playerName.toLowerCase() === ADMIN_NICK.toLowerCase()) {
+            console.log('[MAINTENANCE] 👑 Админ зашел, тех-перерыв проигнорирован');
+            return;
+        }
+
+        try {
+            if (typeof sbFetch !== 'function') return;
+            const data = await sbFetch('game_settings?id=eq.1&select=*');
+            
+            if (data && data.length > 0 && data[0].maintenance_mode === true) {
+                // Включаем блокировку
+                showMaintenanceScreen(data[0].maintenance_text, data[0].maintenance_time);
+            }
+        } catch(e) {
+            console.warn('[MAINTENANCE] Ошибка проверки:', e.message);
+        }
+    }
+
+    // ═══════════════════════════════════════════════════════
+    // 2. ЭКРАН ТЕХ. ПЕРЕРЫВА (Заменяет игру)
+    // ═══════════════════════════════════════════════════════
+    function showMaintenanceScreen(text, time) {
+        // Предотвращаем двойной вызов
+        if (document.getElementById('maintenance-overlay')) return;
+
+        // Прячем игру
+        const appContainer = document.querySelector('.game-container');
+        if (appContainer) appContainer.style.display = 'none';
+
+        // Создаем оверлей
+        const overlay = document.createElement('div');
+        overlay.id = 'maintenance-overlay';
+        overlay.style.cssText = `
+            position: fixed; inset: 0; z-index: 999999;
+            background: #050510; display: flex; flex-direction: column;
+            align-items: center; justify-content: center; padding: 20px;
+            font-family: 'Inter', sans-serif; color: #fff; text-align: center;
+        `;
+
+        overlay.innerHTML = `
+            <style>
+                @import url('https://fonts.googleapis.com/css2?family=Orbitron:wght@700;900&display=swap');
+                .mnt-gears { position: relative; height: 100px; width: 120px; margin-bottom: 20px; }
+                .mnt-gear { position: absolute; font-size: 4rem; filter: drop-shadow(0 0 15px rgba(255,217,102,0.5)); }
+                .mnt-g1 { font-size: 5rem; left: 10px; top: 10px; animation: mntSpin 8s linear infinite; z-index: 2; }
+                .mnt-g2 { font-size: 3.5rem; right: 0; bottom: 0; animation: mntSpinRev 6s linear infinite; z-index: 1; color: #ffb347; }
+                .mnt-g3 { font-size: 2.5rem; left: 0; top: 0; animation: mntSpin 5s linear infinite; z-index: 3; color: #ec4899; }
+                @keyframes mntSpin { 100% { transform: rotate(360deg); } }
+                @keyframes mntSpinRev { 100% { transform: rotate(-360deg); } }
+                .mnt-title { font-family: 'Orbitron', sans-serif; font-size: 1.6rem; font-weight: 900; letter-spacing: 2px; background: linear-gradient(135deg, #fff8dc, #ffd966, #ffb347); -webkit-background-clip: text; background-clip: text; -webkit-text-fill-color: transparent; margin-bottom: 12px; }
+                .mnt-text { font-size: 0.85rem; color: #94a3b8; line-height: 1.6; margin-bottom: 24px; max-width: 300px; }
+                .mnt-time { display: inline-flex; align-items: center; gap: 8px; background: rgba(255,255,255,0.05); border: 1px solid rgba(255,255,255,0.1); padding: 10px 20px; border-radius: 50px; font-family: 'Orbitron', sans-serif; font-size: 0.9rem; font-weight: 700; color: #fff; margin-bottom: 24px; }
+                .mnt-time span { color: #ffd966; }
+                .mnt-loader { width: 100%; max-width: 250px; height: 6px; background: rgba(255,255,255,0.1); border-radius: 10px; overflow: hidden; position: relative; }
+                .mnt-loader::after { content: ''; position: absolute; left: 0; top: 0; bottom: 0; width: 40%; background: linear-gradient(90deg, transparent, #ffd966, #ffb347, transparent); animation: mntLoad 2s ease-in-out infinite; }
+                @keyframes mntLoad { 0% { left: -40%; } 100% { left: 100%; } }
+            </style>
+            
+            <div class="mnt-gears">
+                <div class="mnt-gear mnt-g3">⚙️</div>
+                <div class="mnt-gear mnt-g2">⚙️</div>
+                <div class="mnt-gear mnt-g1">⚙️</div>
+            </div>
+            <div class="mnt-title">Технические работы</div>
+            <div class="mnt-text">${text}</div>
+            <div class="mnt-time">⏳ Осталось: <span>${time}</span></div>
+            <div class="mnt-loader"></div>
+        `;
+        
+        document.body.appendChild(overlay);
+    }
+
+    // Запускаем проверку через 2 секунды после старта игры
+    setTimeout(checkMaintenanceStatus, 2000);
+
+    // ═══════════════════════════════════════════════════════
+    // 3. АДМИНКА (Управление)
+    // ═══════════════════════════════════════════════════════
+    setTimeout(() => {
+        const adminTabs = document.querySelector('.admin-tabs');
+        const adminContent = document.querySelector('.admin-content');
+        if (!adminTabs || !adminContent) return;
+
+        if (!adminTabs.querySelector('[data-atab="maintenance"]')) {
+            const btn = document.createElement('button');
+            btn.className = 'admin-tab';
+            btn.dataset.atab = 'maintenance';
+            btn.innerHTML = '⚙️ Тех. перерыв';
+            
+            const consoleTab = adminTabs.querySelector('[data-atab="console"]');
+            if (consoleTab) adminTabs.insertBefore(btn, consoleTab);
+            else adminTabs.appendChild(btn);
+
+            const pane = document.createElement('div');
+            pane.className = 'admin-pane';
+            pane.id = 'apane-maintenance';
+            pane.innerHTML = `
+                <div class="admin-section">
+                    <div class="admin-section-title">⚙️ Режим технического обслуживания</div>
+                    <div style="display:flex; justify-content:space-between; align-items:center; margin-bottom:16px;">
+                        <div>
+                            <div style="font-size:.85rem; font-weight:700; color:#fff;">Тех. перерыв</div>
+                            <div style="font-size:.7rem; color:#94a3b8;">Если включено, игроки увидят экран загрузки</div>
+                        </div>
+                        <div class="toggle" id="adminMaintToggle" style="margin:0;"></div>
+                    </div>
+                    
+                    <div class="admin-row" style="flex-direction:column; align-items:stretch; margin-top:16px;">
+                        <label class="admin-label">Текст сообщения:</label>
+                        <textarea id="adminMaintText" class="admin-input" rows="3" style="resize:vertical; font-size:0.85rem; padding:12px;">Мы обновляем игру и чиним баги. Приносим извинения за неудобства!</textarea>
+                    </div>
+                    <div class="admin-row" style="flex-direction:column; align-items:stretch; margin-top:10px;">
+                        <label class="admin-label">Время (например, ~15 минут):</label>
+                        <input type="text" id="adminMaintTime" class="admin-input" value="~15 минут">
+                    </div>
+                    
+                    <button class="admin-btn gold" id="adminMaintSave" style="width:100%; margin-top:16px;">💾 Сохранить настройки</button>
+                </div>
+            `;
+            adminContent.appendChild(pane);
+
+            // Логика вкладки
+            btn.addEventListener('click', async () => {
+                document.querySelectorAll('.admin-tab').forEach(t => t.classList.remove('active'));
+                document.querySelectorAll('.admin-pane').forEach(p => p.classList.remove('active'));
+                btn.classList.add('active');
+                pane.classList.add('active');
+
+                try {
+                    if (typeof sbFetch === 'function') {
+                        const data = await sbFetch('game_settings?id=eq.1&select=*');
+                        if (data && data.length > 0) {
+                            const s = data[0];
+                            document.getElementById('adminMaintToggle').classList.toggle('active', s.maintenance_mode);
+                            document.getElementById('adminMaintText').value = s.maintenance_text;
+                            document.getElementById('adminMaintTime').value = s.maintenance_time;
+                        }
+                    }
+                } catch(e) { console.warn('Ошибка загрузки настроек', e); }
+            });
+
+            // Переключение тумблера (визуально)
+            document.getElementById('adminMaintToggle').addEventListener('click', function() {
+                this.classList.toggle('active');
+            });
+
+            // Сохранение
+            document.getElementById('adminMaintSave').addEventListener('click', async () => {
+                const isMode = document.getElementById('adminMaintToggle').classList.contains('active');
+                const text = document.getElementById('adminMaintText').value;
+                const time = document.getElementById('adminMaintTime').value;
+
+                const btnSave = document.getElementById('adminMaintSave');
+                btnSave.disabled = true;
+                btnSave.textContent = '⏳ Сохранение...';
+
+                try {
+                    await sbFetch('game_settings?id=eq.1', {
+                        method: 'PATCH',
+                        headers: { 'Prefer': 'return=minimal' },
+                        body: JSON.stringify({
+                            maintenance_mode: isMode,
+                            maintenance_text: text,
+                            maintenance_time: time
+                        })
+                    });
+                    
+                    if (typeof toast === 'function') toast('Настройки сохранены!', 'success');
+                    if (typeof debugConsole !== 'undefined') debugConsole.success(`⚙️ Тех-перерыв: ${isMode ? 'ВКЛ' : 'ВЫКЛ'}`);
+                } catch(e) {
+                    alert('Ошибка: ' + e.message);
+                } finally {
+                    btnSave.disabled = false;
+                    btnSave.textContent = '💾 Сохранить настройки';
+                }
+            });
+        }
+    }, 2500);
+
+    console.log('[MAINTENANCE] ✅ Патч загружен');
+})();
+    
     init();
 })();
 </script>
