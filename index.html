@@ -2947,7 +2947,7 @@
 })();
    
    // ╔═══════════════════════════════════════════════════════╗
-// ║  🎯 ПАТЧ: СИСТЕМА ТИТУЛОВ                             ║
+// ║  🎯 ПАТЧ: СИСТЕМА ТИТУЛОВ (CLEAN EDITION)             ║
 // ║  Вставлять ПЕРЕД init();                             ║
 // ╚═══════════════════════════════════════════════════════╝
 (function titlesPatch() {
@@ -2956,46 +2956,28 @@
     console.log('[TITLES] Старт...');
 
     // ═══════════════════════════════════════════════════════
-    // 1. КОНФИГ
+    // 1. КОНФИГ (9 титулов, без Lottie)
     // ═══════════════════════════════════════════════════════
-    const LOTTIE_BASE = 'https://cdn.jsdelivr.net/gh/nonameebal-ui/horizon-clicker@main/lottie/';
     const STORAGE_KEY = 'clicker_titles';
+    const RARITY_COLORS = { common: '#94a3b8', rare: '#22d3ee', epic: '#a855f7', legendary: '#ffd966', love: '#ff4d6d' };
 
     const TITLES = [
-        { id: 'novice',    name: 'Новичок',          icon: '🌱', desc: 'Начало большого пути',            req: 'Купить 1 улучшение',         rarity: 'common',    lottie: '' },
-        { id: 'creator',   name: 'Создатель',        icon: '🛠️', desc: 'Своими руками строим империю',    req: 'Купить 10 улучшений',        rarity: 'common',    lottie: 'creator.json' },
-        { id: 'cosmic',    name: 'Космический волк', icon: '🐺', desc: 'Одинокий странник галактики',     req: 'Заработать 100 000 очков',   rarity: 'rare',      lottie: '' },
-        { id: 'aurora',    name: 'Аврора',           icon: '🦋', desc: 'Сияние северного неба',           req: 'Открыть 10 достижений',      rarity: 'rare',      lottie: 'aurora-moth.json' },
-        { id: 'pink',      name: 'Розовый пепел',    icon: '🌸', desc: 'Эстетика разрушения',             req: 'Купить Premium Battle Pass', rarity: 'epic',      lottie: 'butterfly.json' },
-        { id: 'plush',     name: 'Плюшевый',         icon: '🧸', desc: 'Мягкий, но опасный',              req: 'Пригласить 5 друзей',        rarity: 'epic',      lottie: 'plush-pepe.json' },
-        { id: 'legend',    name: 'Легенда',          icon: '👑', desc: 'Ты вписал себя в историю',        req: 'Заработать 1 000 000 очков', rarity: 'legendary', lottie: 'legend.json' },
-        { id: 'shame',     name: 'Позор',            icon: '🤡', desc: 'Как ты вообще сюда попал?',       req: 'Секретное условие',          rarity: 'legendary', lottie: 'shame.json' },
+        { id: 'novice',    name: 'Новичок',           icon: '🌱', desc: 'Начало большого пути',             req: 'Купить 1 улучшение',           rarity: 'common' },
+        { id: 'creator',   name: 'Создатель',         icon: '🛠️', desc: 'Своими руками строим империю',     req: 'Купить 10 улучшений',          rarity: 'common' },
+        { id: 'cosmic',    name: 'Космический волк',  icon: '🐺', desc: 'Одинокий странник галактики',      req: 'Заработать 100 000 очков',     rarity: 'rare' },
+        { id: 'aurora',    name: 'Аврора',            icon: '🦋', desc: 'Сияние северного неба',            req: 'Открыть 10 достижений',        rarity: 'rare' },
+        { id: 'pink',      name: 'Розовый пепел',     icon: '🌸', desc: 'Эстетика разрушения',              req: 'Купить Premium Battle Pass',   rarity: 'epic' },
+        { id: 'plush',     name: 'Плюшевый',          icon: '🧸', desc: 'Мягкий, но опасный',               req: 'Пригласить 5 друзей',          rarity: 'epic' },
+        { id: 'legend',    name: 'Легенда',           icon: '👑', desc: 'Ты вписал себя в историю',         req: 'Заработать 1 000 000 очков',   rarity: 'legendary' },
+        { id: 'shame',     name: 'Позор',             icon: '🤡', desc: 'Как ты вообще сюда попал?',        req: 'Секретное условие',            rarity: 'legendary' },
+        { id: 'love',      name: 'Любовь создателя',  icon: '💖', desc: 'Создатель тебя обожает',           req: 'Секретное условие',            rarity: 'love' },
     ];
 
-    const RARITY_COLORS = {
-        common: '#94a3b8',
-        rare: '#22d3ee',
-        epic: '#a855f7',
-        legendary: '#ffd966'
-    };
-
-    // ═══════════════════════════════════════════════════════
-    // 2. СОСТОЯНИЕ
-    // ═══════════════════════════════════════════════════════
-    const titleState = {
-        active: null, // id надетого титула
-        owned: new Set(['novice']) // Начальный титул
-    };
+    const titleState = { active: null, owned: new Set(['novice']) };
 
     function saveTitles() {
-        try {
-            localStorage.setItem(STORAGE_KEY, JSON.stringify({
-                active: titleState.active,
-                owned: [...titleState.owned]
-            }));
-        } catch(e) {}
+        try { localStorage.setItem(STORAGE_KEY, JSON.stringify({ active: titleState.active, owned: [...titleState.owned] })); } catch(e) {}
     }
-
     function loadTitles() {
         try {
             const raw = localStorage.getItem(STORAGE_KEY);
@@ -3008,26 +2990,33 @@
     loadTitles();
 
     // ═══════════════════════════════════════════════════════
-    // 3. ПРОВЕРКА УСЛОВИЙ (выдача титулов)
+    // 2. ПРОВЕРКА УСЛОВИЙ (Выдача титулов)
     // ═══════════════════════════════════════════════════════
     function checkTitles() {
-        if (typeof state === 'undefined' || typeof UPGRADES === 'undefined') return;
+        if (typeof state === 'undefined') return;
         let changed = false;
 
         const totalUpg = typeof totalUpgradeLevels === 'function' ? totalUpgradeLevels() : 0;
         const achCount = state.unlockedAchievements ? state.unlockedAchievements.size : 0;
-        const bpPremium = window.__bpGetPremium ? window.__bpGetPremium() : false;
+        
+        // Проверка Premium BP (читаем из localStorage, чтобы не зависеть от патча BP)
+        let bpPremium = false;
+        try {
+            const bpRaw = localStorage.getItem('clicker_battlepass');
+            if (bpRaw && JSON.parse(bpRaw).premium) bpPremium = true;
+        } catch(e) {}
+
         const friendsCount = state.friends ? state.friends.length : 0;
 
         const conditions = {
             novice: totalUpg >= 1,
             creator: totalUpg >= 10,
-            cosmic: state.totalEarned >= 100000,
+            cosmic: (state.totalEarned || 0) >= 100000,
             aurora: achCount >= 10,
             pink: bpPremium,
             plush: friendsCount >= 5,
-            legend: state.totalEarned >= 1000000,
-            shame: state.antiCheatTriggered // Секретный, дается за срабатывание античита
+            legend: (state.totalEarned || 0) >= 1000000,
+            shame: state.antiCheatTriggered || false
         };
 
         TITLES.forEach(t => {
@@ -3047,98 +3036,56 @@
     }
 
     // ═══════════════════════════════════════════════════════
-    // 4. CSS
+    // 3. CSS
     // ═══════════════════════════════════════════════════════
     if (!document.getElementById('titles-css')) {
         const css = document.createElement('style');
         css.id = 'titles-css';
         css.textContent = `
-/* Заголовок вкладки */
-.tt-header {
-    display: flex; justify-content: space-between; align-items: center;
-    padding: 12px 16px; margin-bottom: 14px;
-    background: linear-gradient(145deg, rgba(255,217,102,.1), rgba(255,179,71,.03));
-    border: 1px solid rgba(255,217,102,.25); border-radius: 16px;
-}
+.tt-header { display: flex; justify-content: space-between; align-items: center; padding: 12px 16px; margin-bottom: 14px; background: linear-gradient(145deg, rgba(255,217,102,.1), rgba(255,179,71,.03)); border: 1px solid rgba(255,217,102,.25); border-radius: 16px; }
 .tt-header-title { font-family: 'Orbitron', sans-serif; font-size: .75rem; font-weight: 900; letter-spacing: 2px; color: #ffd966; text-transform: uppercase; }
 .tt-header-count { font-size: .7rem; color: #94a3b8; font-weight: 600; }
 .tt-header-count b { color: #10b981; font-family: 'Orbitron', sans-serif; font-size: .8rem; }
 
-/* Сетка титулов */
 .tt-grid { display: flex; flex-direction: column; gap: 10px; }
-
-/* Карточка титула */
-.tt-card {
-    display: flex; align-items: center; gap: 12px;
-    padding: 12px 14px; border-radius: 16px;
-    background: linear-gradient(145deg, rgba(30,30,55,.7), rgba(15,15,30,.7));
-    border: 2px solid rgba(255,255,255,.08);
-    transition: all .25s ease; position: relative; overflow: hidden;
-}
+.tt-card { display: flex; align-items: center; gap: 12px; padding: 12px 14px; border-radius: 16px; background: linear-gradient(145deg, rgba(30,30,55,.7), rgba(15,15,30,.7)); border: 2px solid rgba(255,255,255,.08); transition: all .25s ease; position: relative; overflow: hidden; }
 .tt-card.owned { cursor: pointer; }
 .tt-card.owned:hover { transform: translateY(-2px); }
 .tt-card.locked { opacity: .45; filter: grayscale(.8); cursor: not-allowed; }
 
-/* Лотти контейнер */
-.tt-lottie-wrap {
-    width: 52px; height: 52px; min-width: 52px; border-radius: 12px;
-    display: flex; align-items: center; justify-content: center;
-    position: relative; background: rgba(0,0,0,.4);
-}
-.tt-lottie-wrap::before {
-    content: ''; position: absolute; inset: -2px; border-radius: 14px; z-index: -1;
-    background: var(--rarity-gradient); opacity: 0.5; filter: blur(6px);
-}
-.tt-lottie-wrap .lottie-box { width: 44px; height: 44px; }
-.tt-lottie-wrap .fallback-icon { font-size: 1.6rem; filter: drop-shadow(0 0 10px var(--rarity-color)); }
+.tt-lottie-wrap { width: 52px; height: 52px; min-width: 52px; border-radius: 12px; display: flex; align-items: center; justify-content: center; position: relative; background: rgba(0,0,0,.4); }
+.tt-lottie-wrap::before { content: ''; position: absolute; inset: -2px; border-radius: 14px; z-index: -1; background: var(--rarity-gradient); opacity: 0.5; filter: blur(6px); }
+.tt-lottie-wrap .fallback-icon { font-size: 1.8rem; filter: drop-shadow(0 0 10px var(--rarity-color)); }
 
-/* Инфо */
 .tt-info { flex: 1; min-width: 0; }
 .tt-name { font-family: 'Orbitron', sans-serif; font-size: .85rem; font-weight: 800; color: #fff; margin-bottom: 2px; }
 .tt-desc { font-size: .65rem; color: var(--muted); line-height: 1.3; margin-bottom: 4px; }
 .tt-req { font-size: .6rem; color: #94a3b8; font-weight: 600; }
 .tt-req span { color: var(--rarity-color); }
 
-/* Кнопка */
-.tt-btn {
-    padding: 6px 10px; border-radius: 8px; font-size: .6rem; font-weight: 800;
-    text-transform: uppercase; letter-spacing: .5px; border: 1px solid transparent;
-    background: rgba(255,255,255,.05); color: #fff; white-space: nowrap;
-}
+.tt-btn { padding: 6px 10px; border-radius: 8px; font-size: .6rem; font-weight: 800; text-transform: uppercase; letter-spacing: .5px; border: 1px solid transparent; background: rgba(255,255,255,.05); color: #fff; white-space: nowrap; }
 .tt-card.owned .tt-btn { background: rgba(255,255,255,.1); border-color: rgba(255,255,255,.2); }
 .tt-card.active { background: linear-gradient(145deg, rgba(40,35,20,.8), rgba(20,15,10,.8)); border-color: var(--rarity-color); box-shadow: 0 0 25px var(--rarity-color); }
 .tt-card.active .tt-btn { background: var(--rarity-color); color: #0f0f23; border-color: var(--rarity-color); }
 .tt-card.active .tt-lottie-wrap::before { opacity: 1; animation: ttSpin 4s linear infinite; }
 @keyframes ttSpin { 100% { transform: rotate(360deg); } }
 
-/* Редкости */
 .rarity-common { --rarity-color: #94a3b8; --rarity-gradient: linear-gradient(135deg,#64748b,#334155); }
 .rarity-rare { --rarity-color: #22d3ee; --rarity-gradient: linear-gradient(135deg,#22d3ee,#0369a1); }
 .rarity-epic { --rarity-color: #a855f7; --rarity-gradient: linear-gradient(135deg,#a855f7,#6d28d9); }
 .rarity-legendary { --rarity-color: #ffd966; --rarity-gradient: linear-gradient(135deg,#ffd966,#ff7e5f); }
+.rarity-love { --rarity-color: #ff4d6d; --rarity-gradient: linear-gradient(135deg,#ff4d6d,#ff8fa3,#ff4d6d); }
 
-/* Бейдж в профиле */
-.profile-title-badge {
-    display: inline-flex; align-items: center; gap: 4px;
-    padding: 2px 8px; border-radius: 50px;
-    font-size: .6rem; font-weight: 800; letter-spacing: .5px; text-transform: uppercase;
-    border: 1px solid; position: relative; overflow: hidden;
-    animation: badgeGlow 3s ease-in-out infinite alternate;
-    margin-left: 8px;
-}
+.profile-title-badge { display: inline-flex; align-items: center; gap: 4px; padding: 2px 8px; border-radius: 50px; font-size: .6rem; font-weight: 800; letter-spacing: .5px; text-transform: uppercase; border: 1px solid; position: relative; overflow: hidden; animation: badgeGlow 3s ease-in-out infinite alternate; margin-left: 8px; }
 @keyframes badgeGlow { from { filter: brightness(1); } to { filter: brightness(1.2); } }
-.profile-title-badge::before {
-    content: ''; position: absolute; top: 0; left: -100%; width: 50%; height: 100%;
-    background: linear-gradient(90deg, transparent, rgba(255,255,255,.3), transparent);
-    animation: badgeSweep 3s ease-in-out infinite;
-}
+.profile-title-badge::before { content: ''; position: absolute; top: 0; left: -100%; width: 50%; height: 100%; background: linear-gradient(90deg, transparent, rgba(255,255,255,.3), transparent); animation: badgeSweep 3s ease-in-out infinite; }
 @keyframes badgeSweep { 0% { left: -100%; } 50%,100% { left: 200%; } }
 `;
         document.head.appendChild(css);
     }
 
     // ═══════════════════════════════════════════════════════
-    // 5. UI (ВКЛАДКА И РЕНДЕР)
+    // 4. UI (ВКЛАДКА И РЕНДЕР)
     // ═══════════════════════════════════════════════════════
     function buildTitlesTab() {
         const tabs = document.querySelector('.tabs');
@@ -3146,7 +3093,6 @@
         if (!tabs || !container) return false;
         if (document.getElementById('tab-titles')) return true;
 
-        // Вкладка
         if (!tabs.querySelector('[data-tab="titles"]')) {
             const tabBtn = document.createElement('button');
             tabBtn.className = 'tab';
@@ -3166,14 +3112,13 @@
             });
         }
 
-        // Панель
         const panel = document.createElement('div');
         panel.className = 'tab-panel';
         panel.id = 'tab-titles';
         panel.innerHTML = `
             <div class="tt-header">
                 <div class="tt-header-title">👑 Коллекция титулов</div>
-                <div class="tt-header-count">Открыто: <b id="ttCount">1</b> / 8</div>
+                <div class="tt-header-count">Открыто: <b id="ttCount">1</b> / 9</div>
             </div>
             <div class="tt-grid" id="titlesGrid"></div>
         `;
@@ -3188,7 +3133,8 @@
         const grid = document.getElementById('titlesGrid');
         if (!grid) return;
 
-        document.getElementById('ttCount').textContent = titleState.owned.size;
+        const countEl = document.getElementById('ttCount');
+        if (countEl) countEl.textContent = titleState.owned.size;
         grid.innerHTML = '';
 
         TITLES.forEach(t => {
@@ -3206,7 +3152,9 @@
             else if (isOwned) btnText = 'Надеть';
 
             card.innerHTML = `
-                <div class="tt-lottie-wrap" id="tt-lottie-${t.id}"></div>
+                <div class="tt-lottie-wrap" style="--rarity-color: ${RARITY_COLORS[t.rarity]};">
+                    <div class="fallback-icon" style="color:${RARITY_COLORS[t.rarity]};">${isOwned ? t.icon : '🔒'}</div>
+                </div>
                 <div class="tt-info">
                     <div class="tt-name">${t.name}</div>
                     <div class="tt-desc">${t.desc}</div>
@@ -3215,46 +3163,15 @@
                 <button class="tt-btn" ${!isOwned || isActive ? 'disabled' : ''}>${btnText}</button>
             `;
 
-            const wrap = card.querySelector(`#tt-lottie-${t.id}`);
-            wrap.style.setProperty('--rarity-color', RARITY_COLORS[t.rarity]);
-            if (isOwned) {
-                mountTitleLottie(wrap, t.icon, t.lottie, RARITY_COLORS[t.rarity]);
-            } else {
-                wrap.innerHTML = `<div class="fallback-icon" style="filter:grayscale(1);opacity:.5">🔒</div>`;
-            }
-
             if (isOwned && !isActive) {
                 card.addEventListener('click', () => equipTitle(t.id));
             }
-
             grid.appendChild(card);
         });
     }
 
-    function mountTitleLottie(container, icon, filename, color) {
-        if (!filename || typeof lottie === 'undefined') {
-            container.innerHTML = `<div class="fallback-icon">${icon}</div>`;
-            return;
-        }
-        container.innerHTML = '';
-        const box = document.createElement('div');
-        box.className = 'lottie-box';
-        container.appendChild(box);
-        
-        try {
-            const anim = lottie.loadAnimation({
-                container: box, renderer: 'svg', loop: true, autoplay: true, path: LOTTIE_BASE + filename
-            });
-            anim.addEventListener('data_failed', () => {
-                container.innerHTML = `<div class="fallback-icon">${icon}</div>`;
-            });
-        } catch(e) {
-            container.innerHTML = `<div class="fallback-icon">${icon}</div>`;
-        }
-    }
-
     // ═══════════════════════════════════════════════════════
-    // 6. ЛОГИКА (НАДЕТЬ И СИНХРОНИЗАЦИЯ)
+    // 5. ЛОГИКА (НАДЕТЬ И СИНХРОНИЗАЦИЯ)
     // ═══════════════════════════════════════════════════════
     function equipTitle(id) {
         if (titleState.active === id || !titleState.owned.has(id)) return;
@@ -3276,35 +3193,39 @@
                 headers: { 'Prefer': 'return=minimal' },
                 body: JSON.stringify({ active_title: titleState.active })
             });
-        } catch(e) {
-            // Игнорируем ошибку, если колонки active_title нет в базе
-        }
+        } catch(e) {}
     }
 
     async function pullTitleFromSupabase() {
         if (typeof sbFetch !== 'function' || typeof state === 'undefined' || !state.playerName) return;
         try {
-            const data = await sbFetch(`leaderboard?player_name=ilike.${encodeURIComponent(state.playerName)}&select=active_title`);
-            if (data && data.length > 0 && data[0].active_title) {
-                if (data[0].active_title !== titleState.active && titleState.owned.has(data[0].active_title)) {
+            const data = await sbFetch(`leaderboard?player_name=ilike.${encodeURIComponent(state.playerName)}&select=active_title,titles`);
+            if (data && data.length > 0) {
+                // 1. Подтягиваем активный титул
+                if (data[0].active_title && data[0].active_title !== titleState.active && titleState.owned.has(data[0].active_title)) {
                     titleState.active = data[0].active_title;
-                    saveTitles();
-                    renderTitles();
-                    updateProfileBadge();
+                    saveTitles(); renderTitles(); updateProfileBadge();
+                }
+                // 2. Подтягиваем выданные админом титулы
+                if (data[0].titles && Array.isArray(data[0].titles)) {
+                    let changed = false;
+                    data[0].titles.forEach(id => {
+                        if (!titleState.owned.has(id)) { titleState.owned.add(id); changed = true; }
+                    });
+                    if (changed) { saveTitles(); renderTitles(); }
                 }
             }
         } catch(e) {}
     }
 
     // ═══════════════════════════════════════════════════════
-    // 7. ИНТЕГРАЦИЯ В ПРОФИЛЬ
+    // 6. ИНТЕГРАЦИЯ В ПРОФИЛЬ
     // ═══════════════════════════════════════════════════════
     function updateProfileBadge() {
         if (typeof state === 'undefined') return;
         const nameEl = document.getElementById('profileName');
         if (!nameEl) return;
 
-        // Удаляем старый бейдж, если есть
         const oldBadge = nameEl.querySelector('.profile-title-badge');
         if (oldBadge) oldBadge.remove();
 
@@ -3330,16 +3251,11 @@
     }
 
     // ═══════════════════════════════════════════════════════
-    // 8. АВТОПРОВЕРКА (вызов checkTitles)
+    // 7. ЗАПУСК
     // ═══════════════════════════════════════════════════════
-    // Проверяем раз в 2 секунды вместе с достижениями
     setInterval(checkTitles, 2000);
-    // И при старте
     setTimeout(checkTitles, 3000);
 
-    // ═══════════════════════════════════════════════════════
-    // 9. ВСТАВКА UI
-    // ═══════════════════════════════════════════════════════
     setTimeout(buildTitlesTab, 1200);
     setTimeout(() => {
         if (!document.getElementById('tab-titles')) buildTitlesTab();
@@ -3347,8 +3263,8 @@
     }, 2500);
 
     setTimeout(pullTitleFromSupabase, 3000);
+    setInterval(pullTitleFromSupabase, 15000); // Проверяем новые титулы от админа каждые 15 сек
 
-    // Обновляем бейдж, когда игрок заходит в профиль
     document.querySelectorAll('.tab').forEach(tab => {
         if (tab.dataset.tab === 'profile') {
             tab.addEventListener('click', () => setTimeout(updateProfileBadge, 100));
@@ -3357,7 +3273,7 @@
 
     console.log('[TITLES] ✅ Патч загружен');
 })();
-    
+   
     // ╔═══════════════════════════════════════════════════════╗
 // ║  🎯 ПАТЧ: АВТОМАТИЧЕСКОЕ СОХРАНЕНИЕ В SUPABASE        ║
 // ║  Вставлять ПЕРЕД init();                             ║
@@ -4058,343 +3974,6 @@
     }, 3000);
 
     console.log('[FIX-TITLE-DB] ✅ Патч загружен');
-})();
-    
-    // ╔═══════════════════════════════════════════════════════╗
-// ║  🎯 ПАТЧ: ТИТУЛ "ЛЮБОВЬ СОЗДАТЕЛЯ" (NO-LOTTIE FIX)    ║
-// ║  Вставлять ПЕРЕД init();                             ║
-// ╚═══════════════════════════════════════════════════════╝
-(function loveTitleFinalFix() {
-    if (window.__loveFinalFixApplied) return;
-    window.__loveFinalFixApplied = true;
-    console.log('[LOVE-FIX] Старт...');
-
-    if (!document.getElementById('love-css')) {
-        const style = document.createElement('style');
-        style.id = 'love-css';
-        style.textContent = `
-.rarity-love { --rarity-color: #ff4d6d; --rarity-gradient: linear-gradient(135deg,#ff4d6d,#ff8fa3,#ff4d6d); }
-.rarity-love.tt-card { border-color: rgba(255,77,109,.6); box-shadow: 0 0 30px rgba(255,77,109,.3); }
-.rarity-love.tt-card.active { border-color: #ff4d6d; box-shadow: 0 0 30px rgba(255,77,109,.6); }
-.rarity-love.tt-card.active .tt-btn { background: #ff4d6d; color: #fff; border-color: #ff4d6d; }
-.heart-particle { position: absolute; color: #ff4d6d; font-size: 12px; pointer-events: none; animation: floatHeart 2s ease-in infinite; opacity: 0; z-index: 10; }
-@keyframes floatHeart { 0% { transform: translateY(0) scale(0.5); opacity: 0; } 20% { opacity: 1; } 100% { transform: translateY(-40px) scale(1.2); opacity: 0; } }
-`;
-        document.head.appendChild(style);
-    }
-
-    function getTitlesData() {
-        try {
-            const raw = localStorage.getItem('clicker_titles');
-            return raw ? JSON.parse(raw) : { active: null, owned: [] };
-        } catch(e) { return { active: null, owned: [] }; }
-    }
-    function saveTitlesData(data) {
-        try { localStorage.setItem('clicker_titles', JSON.stringify(data)); } catch(e) {}
-    }
-
-    function injectLoveCard() {
-        const grid = document.getElementById('titlesGrid');
-        if (!grid || document.getElementById('title-love')) return;
-
-        const data = getTitlesData();
-        const isOwned = data.owned.includes('love');
-        const isActive = data.active === 'love';
-
-        const card = document.createElement('div');
-        card.id = 'title-love';
-        card.className = `tt-card rarity-love ${isActive ? 'active' : (isOwned ? 'owned' : 'locked')}`;
-
-        let btnText = isOwned ? (isActive ? 'Надет' : 'Надеть') : '🔒';
-
-        card.innerHTML = `
-            <div class="tt-lottie-wrap" style="--rarity-color: #ff4d6d;">
-                <div class="fallback-icon" style="color:#ff4d6d; font-size: 1.6rem;">💖</div>
-            </div>
-            <div class="tt-info">
-                <div class="tt-name">Любовь создателя</div>
-                <div class="tt-desc">Создатель тебя обожает</div>
-                <div class="tt-req" style="color:#ff4d6d;">Условие: Секретное</div>
-            </div>
-            <button class="tt-btn" ${(!isOwned || isActive) ? 'disabled' : ''}>${btnText}</button>
-        `;
-
-        // Сердечки
-        const iconWrap = card.querySelector('.tt-lottie-wrap');
-        if (!iconWrap.dataset.hearts) {
-            iconWrap.dataset.hearts = "1";
-            setInterval(() => {
-                if (!document.body.contains(iconWrap)) return;
-                const heart = document.createElement('div');
-                heart.className = 'heart-particle';
-                heart.textContent = '❤️';
-                heart.style.left = Math.random() * 40 + 'px';
-                heart.style.bottom = '0px';
-                iconWrap.appendChild(heart);
-                setTimeout(() => heart.remove(), 2000);
-            }, 600);
-        }
-
-        if (isOwned && !isActive) {
-            card.querySelector('.tt-btn').addEventListener('click', () => {
-                const d = getTitlesData();
-                d.active = 'love';
-                saveTitlesData(d);
-                
-                if (typeof sbFetch === 'function' && typeof state !== 'undefined' && state.playerName) {
-                    sbFetch(`leaderboard?player_name=ilike.${encodeURIComponent(state.playerName)}`, {
-                        method: 'PATCH', headers: { 'Prefer': 'return=minimal' },
-                        body: JSON.stringify({ active_title: 'love' })
-                    }).catch(() => {});
-                }
-                if (typeof toast === 'function') toast('💖 Титул надет!', 'success');
-                location.reload();
-            });
-        }
-        grid.appendChild(card);
-    }
-
-    function injectAdminButton() {
-        const adminGrid = document.getElementById('adminTitleGrid');
-        if (!adminGrid || document.getElementById('admin-love-btn')) return;
-
-        const row = document.createElement('div');
-        row.id = 'admin-love-btn';
-        row.className = 'admin-upgrade-row';
-        row.style.cssText = 'padding:10px;background:rgba(0,0,0,0.3);border-radius:10px;margin-bottom:6px;';
-        row.innerHTML = `
-            <div style="font-size:1.4rem; min-width:30px; text-align:center;">💖</div>
-            <div style="flex:1; font-size:.8rem; font-weight:700; color:#ff4d6d;">Любовь создателя</div>
-            <button class="admin-btn green" style="padding:6px 12px; font-size:.7rem;">Выдать</button>
-        `;
-
-        row.querySelector('button').addEventListener('click', async () => {
-            const playerId = document.getElementById('apane-titles').dataset.playerId;
-            if (!playerId) return alert('Сначала найдите игрока!');
-            try {
-                const data = await sbFetch(`leaderboard?id=eq.${playerId}&select=titles`);
-                let titles = (data && data[0] && data[0].titles) ? data[0].titles : [];
-                if (!titles.includes('love')) {
-                    titles.push('love');
-                    await sbFetch(`leaderboard?id=eq.${playerId}`, {
-                        method: 'PATCH', headers: { 'Prefer': 'return=minimal' },
-                        body: JSON.stringify({ titles, force_sync: true })
-                    });
-                    alert('✅ Титул выдан!');
-                    row.querySelector('button').textContent = 'Забрать';
-                    row.querySelector('button').className = 'admin-btn';
-                } else {
-                    titles = titles.filter(t => t !== 'love');
-                    await sbFetch(`leaderboard?id=eq.${playerId}`, {
-                        method: 'PATCH', headers: { 'Prefer': 'return=minimal' },
-                        body: JSON.stringify({ titles, force_sync: true })
-                    });
-                    alert('Титул забран!');
-                    row.querySelector('button').textContent = 'Выдать';
-                    row.querySelector('button').className = 'admin-btn green';
-                }
-            } catch(e) { alert('Ошибка: ' + e.message); }
-        });
-        adminGrid.appendChild(row);
-    }
-
-    async function syncLoveFromDB() {
-        if (typeof sbFetch !== 'function' || typeof state === 'undefined' || !state.playerName) return;
-        try {
-            const data = await sbFetch(`leaderboard?player_name=ilike.${encodeURIComponent(state.playerName)}&select=titles`);
-            if (data && data.length > 0 && data[0].titles) {
-                const dbTitles = data[0].titles;
-                if (dbTitles.includes('love')) {
-                    const localData = getTitlesData();
-                    if (!localData.owned.includes('love')) {
-                        localData.owned.push('love');
-                        saveTitlesData(localData);
-                        console.log('[LOVE-FIX] ✅ Титул получен из базы');
-                        if (typeof toast === 'function') toast('💖 Вам подарен титул «Любовь создателя»!', 'success');
-                        setTimeout(() => location.reload(), 1500);
-                    }
-                }
-            }
-        } catch(e) {}
-    }
-
-    setInterval(() => { injectLoveCard(); injectAdminButton(); }, 1000);
-    setTimeout(syncLoveFromDB, 3000);
-    setInterval(syncLoveFromDB, 15000);
-
-    console.log('[LOVE-FIX] ✅ Патч загружен');
-})();
-    
-    // ╔═══════════════════════════════════════════════════════╗
-// ║  🎯 ФИКС: ОТОБРАЖЕНИЕ 9-ГО ТИТУЛА И БЕЙДЖА В ПРОФИЛЕ ║
-// ║  Вставлять ПЕРЕД init();                             ║
-// ╚═══════════════════════════════════════════════════════╝
-(function fixNinthTitleAndBadge() {
-    if (window.__fixNinthTitleApplied) return;
-    window.__fixNinthTitleApplied = true;
-    console.log('[FIX-9TH] Старт...');
-
-    // 1. Внедряем 9-й титул в глобальный массив (если он доступен)
-    setTimeout(() => {
-        if (typeof TITLES !== 'undefined' && !TITLES.find(t => t.id === 'love')) {
-            TITLES.push({
-                id: 'love',
-                name: 'Любовь создателя',
-                icon: '💖',
-                desc: 'Создатель тебя обожает',
-                req: 'Секретное условие',
-                rarity: 'love',
-                lottie: ''
-            });
-            console.log('[FIX-9TH] ✅ Титул добавлен в массив TITLES');
-        }
-    }, 500);
-
-    // 2. Дожидаемся загрузки и переопределяем функцию обновления профиля
-    setTimeout(() => {
-        // Пытаемся найти переменную стейта титулов
-        if (typeof titleState !== 'undefined') {
-            // Патчим функцию обновления бейджа в профиле
-            const originalUpdateBadge = window.updateProfileBadge || function(){};
-            
-            window.updateProfileBadge = function() {
-                const nameEl = document.getElementById('profileName');
-                if (!nameEl) return;
-
-                // Удаляем старый бейдж
-                const oldBadge = nameEl.querySelector('.profile-title-badge');
-                if (oldBadge) oldBadge.remove();
-
-                // Если надет титул
-                if (titleState.active) {
-                    let t = null;
-                    
-                    // Ищем в основном массиве
-                    if (typeof TITLES !== 'undefined') {
-                        t = TITLES.find(x => x.id === titleState.active);
-                    }
-                    
-                    // Если не нашли (например, это love) — создаем объект вручную
-                    if (!t && titleState.active === 'love') {
-                        t = { id: 'love', name: 'Любовь создателя', icon: '💖', rarity: 'love' };
-                    }
-
-                    if (t) {
-                        const badge = document.createElement('span');
-                        badge.className = `profile-title-badge rarity-${t.rarity}`;
-                        badge.innerHTML = `${t.icon} ${t.name}`;
-                        
-                        const colorMap = { 
-                            common: '#94a3b8', rare: '#22d3ee', epic: '#a855f7', 
-                            legendary: '#ffd966', love: '#ff4d6d' 
-                        };
-                        const color = colorMap[t.rarity] || '#fff';
-                        
-                        badge.style.color = color;
-                        badge.style.borderColor = color;
-                        badge.style.background = `rgba(${hexToRgb(color)}, 0.1)`;
-                        
-                        nameEl.appendChild(badge);
-                    }
-                }
-            };
-            
-            // Вызываем сразу, чтобы бейдж появился
-            window.updateProfileBadge();
-            console.log('[FIX-9TH] ✅ Функция обновления бейджа перезаписана');
-        }
-    }, 2000);
-
-    // 3. Функция для конвертации цвета
-    function hexToRgb(hex) {
-        const r = parseInt(hex.slice(1,3), 16);
-        const g = parseInt(hex.slice(3,5), 16);
-        const b = parseInt(hex.slice(5,7), 16);
-        return `${r},${g},${b}`;
-    }
-
-    // 4. Патчим функцию рендера титулов, чтобы она не удаляла 9-ю карточку
-    setTimeout(() => {
-        if (typeof window.__ttRender === 'function') {
-            const originalRender = window.__ttRender;
-            
-            window.__ttRender = function() {
-                // Вызываем оригинальный рендер (он рисует 8 карточек)
-                originalRender.apply(this, arguments);
-                
-                // После него вставляем нашу 9-ю карточку
-                const grid = document.getElementById('titlesGrid');
-                if (!grid) return;
-
-                // Проверяем, не вставили ли уже
-                if (document.getElementById('title-love')) return;
-
-                let isOwned = false, isActive = false;
-                try {
-                    const raw = localStorage.getItem('clicker_titles');
-                    if (raw) {
-                        const data = JSON.parse(raw);
-                        if (data.owned && data.owned.includes('love')) isOwned = true;
-                        if (data.active === 'love') isActive = true;
-                    }
-                } catch(e) {}
-
-                if (!isOwned) return; // Если не выдан, не показываем (или показываем закрытым)
-
-                const card = document.createElement('div');
-                card.id = 'title-love';
-                card.className = `tt-card rarity-love ${isActive ? 'active' : 'owned'}`;
-                
-                card.innerHTML = `
-                    <div class="tt-lottie-wrap" style="--rarity-color: #ff4d6d;">
-                        <div class="fallback-icon" style="color:#ff4d6d; font-size: 1.6rem;">💖</div>
-                    </div>
-                    <div class="tt-info">
-                        <div class="tt-name">Любовь создателя</div>
-                        <div class="tt-desc">Создатель тебя обожает</div>
-                        <div class="tt-req" style="color:#ff4d6d;">Условие: Секретное</div>
-                    </div>
-                    <button class="tt-btn" ${isActive ? 'disabled' : ''}>${isActive ? 'Надет' : 'Надеть'}</button>
-                `;
-
-                if (!isActive) {
-                    card.querySelector('.tt-btn').addEventListener('click', () => {
-                        const d = JSON.parse(localStorage.getItem('clicker_titles') || '{"active":null,"owned":[]}');
-                        d.active = 'love';
-                        localStorage.setItem('clicker_titles', JSON.stringify(d));
-                        if (typeof sbFetch === 'function' && typeof state !== 'undefined' && state.playerName) {
-                            sbFetch(`leaderboard?player_name=ilike.${encodeURIComponent(state.playerName)}`, {
-                                method: 'PATCH', headers: { 'Prefer': 'return=minimal' },
-                                body: JSON.stringify({ active_title: 'love' })
-                            }).catch(() => {});
-                        }
-                        location.reload();
-                    });
-                }
-                grid.appendChild(card);
-            };
-            
-            // Вызываем наш новый рендер
-            window.__ttRender();
-        }
-    }, 2500);
-
-    // Добавляем стили для сердечек, если их нет
-    if (!document.getElementById('love-fix-css')) {
-        const style = document.createElement('style');
-        style.id = 'love-fix-css';
-        style.textContent = `
-.rarity-love { --rarity-color: #ff4d6d; --rarity-gradient: linear-gradient(135deg,#ff4d6d,#ff8fa3,#ff4d6d); }
-.rarity-love.tt-card { border-color: rgba(255,77,109,.6); box-shadow: 0 0 30px rgba(255,77,109,.3); }
-.rarity-love.tt-card.active { border-color: #ff4d6d; box-shadow: 0 0 30px rgba(255,77,109,.6); }
-.rarity-love.tt-card.active .tt-btn { background: #ff4d6d; color: #fff; border-color: #ff4d6d; }
-.profile-title-badge.rarity-love { animation: pulseLove 2s infinite; }
-@keyframes pulseLove { 0%, 100% { box-shadow: 0 0 10px rgba(255,77,109,0.5); } 50% { box-shadow: 0 0 20px rgba(255,77,109,0.8); } }
-`;
-        document.head.appendChild(style);
-    }
-
-    console.log('[FIX-9TH] ✅ Патч загружен');
 })();
     
     init();
