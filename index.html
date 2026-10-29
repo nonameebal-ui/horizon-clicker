@@ -5866,7 +5866,7 @@
     }
 
     // ═══════════════════════════════════════════════════════
-    // 3. ЗАГРУЗКА С СЕРВЕРА
+    // 3. ЗАГРУЗКА С СЕРВЕРА (БЕЗ ПЕРЕЗАГРУЗКИ)
     // ═══════════════════════════════════════════════════════
     async function loadFromServer() {
         if (typeof sbFetch !== 'function') return;
@@ -5879,14 +5879,14 @@
 
             let restored = [];
 
-            // Восстанавливаем очки
+            // 1. Очки
             if (row.score && row.score > state.score) {
                 state.score = row.score;
                 state.bestScore = row.score;
                 restored.push('очки');
             }
 
-            // Восстанавливаем уровень и XP
+            // 2. Уровень и XP
             if (row.player_level) {
                 window.playerLevel = row.player_level;
                 localStorage.setItem('clicker_player_level', String(row.player_level));
@@ -5896,7 +5896,7 @@
             }
             if (row.player_level) restored.push(`уровень ${row.player_level}`);
 
-            // Восстанавливаем титулы
+            // 3. Титулы
             if (row.titles && Array.isArray(row.titles) && row.titles.length > 0) {
                 try {
                     const raw = localStorage.getItem('clicker_titles');
@@ -5910,7 +5910,7 @@
                 } catch(e) {}
             }
 
-            // Восстанавливаем улучшения
+            // 4. Улучшения
             if (row.upgrades && typeof UPGRADES !== 'undefined') {
                 const up = typeof row.upgrades === 'string' ? JSON.parse(row.upgrades) : row.upgrades;
                 let count = 0;
@@ -5923,11 +5923,19 @@
                 if (count > 0) restored.push(`улучшения: ${count}`);
             }
 
-            // Восстанавливаем достижения
+            // 5. Достижения
             if (row.achievements && Array.isArray(row.achievements)) {
-                row.achievements.forEach(id => state.unlockedAchievements.add(id));
+                let added = 0;
+                row.achievements.forEach(id => {
+                    if (!state.unlockedAchievements.has(id)) {
+                        state.unlockedAchievements.add(id);
+                        added++;
+                    }
+                });
+                if (added > 0) restored.push(`достижения: ${added}`);
             }
 
+            // 6. ПРИМЕНЯЕМ ВСЁ БЕЗ ПЕРЕЗАГРУЗКИ
             if (restored.length > 0) {
                 if (typeof recalcStats === 'function') recalcStats();
                 if (typeof recalcAchBonus === 'function') recalcAchBonus();
@@ -5935,14 +5943,28 @@
                 if (typeof updateUI === 'function') updateUI();
                 if (typeof renderShop === 'function') renderShop();
                 if (typeof renderAchievements === 'function') renderAchievements();
+                if (typeof updateAchUI === 'function') updateAchUI();
+                
+                // Обновляем шкалу уровня в профиле
+                if (typeof window.renderLevelBar === 'function') window.renderLevelBar();
+                
+                // Обновляем бейджи титулов
                 if (typeof window.__ttRender === 'function') window.__ttRender();
+                if (typeof updateProfileBadge === 'function') updateProfileBadge();
+                
+                // Обновляем титул в профиле визуально
+                if (typeof window.updateProfileTitle === 'function') window.updateProfileTitle();
+                const titleBadge = document.querySelector('.profile-title-badge');
+                if (titleBadge && row.active_title) {
+                    // Если надо, принудительно обновим бейдж (зависит от патча титулов)
+                }
+
                 if (typeof toast === 'function') toast(`☁️ Загружено: ${restored.join(', ')}`, 'success');
-                setTimeout(() => location.reload(), 1500);
             }
         } catch(e) {
             console.warn('[SAVE-MASTER] Ошибка загрузки:', e.message);
         }
-    }
+       }
 
     // ═══════════════════════════════════════════════════════
     // 4. АВТОСОХРАНЕНИЕ И ХУКИ
