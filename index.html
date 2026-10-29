@@ -5780,6 +5780,212 @@
     console.log('[MEGA-MENU] ✅ Патч загружен');
 })();
     
+    // ╔═══════════════════════════════════════════════════════╗
+// ║  🎯 ПАТЧ: СЕЙВ-МАСТЕР (ПОЛНАЯ СИНХРОНИЗАЦИЯ)          ║
+// ║  Вставлять ПЕРЕД init();                             ║
+// ╚═══════════════════════════════════════════════════════╝
+(function saveMasterPatch() {
+    if (window.__saveMasterApplied) return;
+    window.__saveMasterApplied = true;
+    console.log('[SAVE-MASTER] Старт...');
+
+    // ═══════════════════════════════════════════════════════
+    // 1. СОБИРАЕМ ВСЁ В ОДИН ПАКЕТ
+    // ═══════════════════════════════════════════════════════
+    function getFullPayload() {
+        // Очки и клики
+        let payload = {};
+        if (typeof state !== 'undefined') {
+            payload.score = Math.floor(state.score || 0);
+            payload.total_clicks = Math.floor(state.totalClicks || 0);
+            payload.manual_clicks = Math.floor(state.manualClicks || 0);
+            payload.per_click = Math.floor((state.clickMultiplier || 1) * (1 + (state.achBonus || 0)));
+        }
+
+        // Уровень и опыт (из патча уровней)
+        payload.player_level = window.playerLevel || 1;
+        let xpRaw = localStorage.getItem('clicker_player_xp');
+        payload.player_xp = xpRaw ? parseInt(xpRaw) : 0;
+
+        // Улучшения
+        if (typeof UPGRADES !== 'undefined') {
+            const up = {};
+            UPGRADES.forEach(u => { up[u.id] = u.level; });
+            payload.upgrades = up;
+        }
+
+        // Достижения
+        if (typeof state !== 'undefined' && state.unlockedAchievements) {
+            payload.achievements = [...state.unlockedAchievements];
+        }
+
+        // Титулы (из localStorage)
+        try {
+            const raw = localStorage.getItem('clicker_titles');
+            if (raw) {
+                const d = JSON.parse(raw);
+                payload.active_title = d.active || null;
+                payload.titles = d.owned || [];
+            }
+        } catch(e) {}
+
+        return payload;
+    }
+
+    // ═══════════════════════════════════════════════════════
+    // 2. ОТПРАВКА В SUPABASE
+    // ═══════════════════════════════════════════════════════
+    async function saveToServer() {
+        if (typeof sbFetch !== 'function') return;
+        if (typeof state === 'undefined' || !state.playerName) return;
+        if (state.score < 100) return; // Не сохраняем пустоту
+
+        const payload = getFullPayload();
+
+        try {
+            // Проверяем, есть ли запись
+            const existing = await sbFetch(`leaderboard?player_name=ilike.${encodeURIComponent(state.playerName)}&select=id`);
+            if (existing && existing.length > 0) {
+                await sbFetch(`leaderboard?id=eq.${existing[0].id}`, {
+                    method: 'PATCH',
+                    headers: { 'Prefer': 'return=minimal' },
+                    body: JSON.stringify(payload)
+                });
+            } else {
+                payload.player_name = state.playerName;
+                await sbFetch('leaderboard', {
+                    method: 'POST',
+                    headers: { 'Prefer': 'return=minimal' },
+                    body: JSON.stringify(payload)
+                });
+            }
+            if (typeof debugConsole !== 'undefined') debugConsole.success('☁️ Полный сейв отправлен');
+        } catch(e) {
+            console.warn('[SAVE-MASTER] Ошибка:', e.message);
+        }
+    }
+
+    // ═══════════════════════════════════════════════════════
+    // 3. ЗАГРУЗКА С СЕРВЕРА
+    // ═══════════════════════════════════════════════════════
+    async function loadFromServer() {
+        if (typeof sbFetch !== 'function') return;
+        if (typeof state === 'undefined' || !state.playerName) return;
+
+        try {
+            const data = await sbFetch(`leaderboard?player_name=ilike.${encodeURIComponent(state.playerName)}&select=*`);
+            if (!data || data.length === 0) return;
+            const row = data[0];
+
+            let restored = [];
+
+            // Восстанавливаем очки
+            if (row.score && row.score > state.score) {
+                state.score = row.score;
+                state.bestScore = row.score;
+                restored.push('очки');
+            }
+
+            // Восстанавливаем уровень и XP
+            if (row.player_level) {
+                window.playerLevel = row.player_level;
+                localStorage.setItem('clicker_player_level', String(row.player_level));
+            }
+            if (row.player_xp) {
+                localStorage.setItem('clicker_player_xp', String(row.player_xp));
+            }
+            if (row.player_level) restored.push(`уровень ${row.player_level}`);
+
+            // Восстанавливаем титулы
+            if (row.titles && Array.isArray(row.titles) && row.titles.length > 0) {
+                try {
+                    const raw = localStorage.getItem('clicker_titles');
+                    let tData = raw ? JSON.parse(raw) : { active: null, owned: [] };
+                    row.titles.forEach(id => {
+                        if (!tData.owned.includes(id)) tData.owned.push(id);
+                    });
+                    if (row.active_title) tData.active = row.active_title;
+                    localStorage.setItem('clicker_titles', JSON.stringify(tData));
+                    restored.push(`титулы: ${row.titles.length}`);
+                } catch(e) {}
+            }
+
+            // Восстанавливаем улучшения
+            if (row.upgrades && typeof UPGRADES !== 'undefined') {
+                const up = typeof row.upgrades === 'string' ? JSON.parse(row.upgrades) : row.upgrades;
+                let count = 0;
+                UPGRADES.forEach(u => {
+                    if (up[u.id] && up[u.id] > u.level) {
+                        u.level = up[u.id];
+                        count++;
+                    }
+                });
+                if (count > 0) restored.push(`улучшения: ${count}`);
+            }
+
+            // Восстанавливаем достижения
+            if (row.achievements && Array.isArray(row.achievements)) {
+                row.achievements.forEach(id => state.unlockedAchievements.add(id));
+            }
+
+            if (restored.length > 0) {
+                if (typeof recalcStats === 'function') recalcStats();
+                if (typeof recalcAchBonus === 'function') recalcAchBonus();
+                if (typeof saveProgress === 'function') saveProgress();
+                if (typeof updateUI === 'function') updateUI();
+                if (typeof renderShop === 'function') renderShop();
+                if (typeof renderAchievements === 'function') renderAchievements();
+                if (typeof window.__ttRender === 'function') window.__ttRender();
+                if (typeof toast === 'function') toast(`☁️ Загружено: ${restored.join(', ')}`, 'success');
+                setTimeout(() => location.reload(), 1500);
+            }
+        } catch(e) {
+            console.warn('[SAVE-MASTER] Ошибка загрузки:', e.message);
+        }
+    }
+
+    // ═══════════════════════════════════════════════════════
+    // 4. АВТОСОХРАНЕНИЕ И ХУКИ
+    // ═══════════════════════════════════════════════════════
+    // Каждые 30 секунд
+    setInterval(saveToServer, 30000);
+
+    // При закрытии вкладки
+    window.addEventListener('beforeunload', saveToServer);
+
+    // При сворачивании
+    document.addEventListener('visibilitychange', () => {
+        if (document.visibilityState === 'hidden') saveToServer();
+    });
+
+    // Перехватываем ручное сохранение из профиля
+    if (typeof submitScore === 'function' && !window.__origSubmitMaster) {
+        window.__origSubmitMaster = submitScore;
+        window.submitScore = function() {
+            window.__origSubmitMaster.apply(this, arguments);
+            saveToServer();
+        };
+        try { submitScore = window.submitScore; } catch(e) {}
+    }
+
+    // Перехватываем загрузку из профиля
+    if (typeof syncProgressFromLeaderboard === 'function' && !window.__origLoadMaster) {
+        window.__origLoadMaster = syncProgressFromLeaderboard;
+        window.syncProgressFromLeaderboard = function() {
+            window.__origLoadMaster.apply(this, arguments);
+            loadFromServer();
+        };
+        try { syncProgressFromLeaderboard = window.syncProgressFromLeaderboard; } catch(e) {}
+    }
+
+    // ═══════════════════════════════════════════════════════
+    // 5. ЗАПУСК (автозагрузка при старте)
+    // ═══════════════════════════════════════════════════════
+    setTimeout(loadFromServer, 4000);
+
+    console.log('[SAVE-MASTER] ✅ Патч загружен');
+})();
+    
     init();
 })();
 </script>
