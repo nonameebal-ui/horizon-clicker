@@ -5450,337 +5450,7 @@
     console.log('[BEAUTIFUL] ✅ Патч загружен');
 })();
     
-    // ╔═══════════════════════════════════════════════════════╗
-// ║  🎯 МЕГА-ПАТЧ: УДОБНОЕ МЕНЮ + ЕЖЕДНЕВНЫЕ КВЕСТЫ       ║
-// ║  Вставлять ПЕРЕД init();                             ║
-// ╚═══════════════════════════════════════════════════════╝
-(function megaMenuAndQuestsPatch() {
-    if (window.__megaMenuApplied) return;
-    window.__megaMenuApplied = true;
-    console.log('[MEGA-MENU] Старт...');
-
-    // ═══════════════════════════════════════════════════════
-    // 1. CSS ДЛЯ НОВОГО МЕНЮ И КВЕСТОВ
-    // ═══════════════════════════════════════════════════════
-    if (!document.getElementById('mega-menu-css')) {
-        const css = document.createElement('style');
-        css.id = 'mega-menu-css';
-        css.textContent = `
-        /* Скрываем старые табы */
-        .tabs { display: none !important; }
-
-        /* Новое нижнее меню */
-        .new-bottom-nav {
-            display: flex; justify-content: space-around;
-            background: rgba(15, 15, 30, 0.95); backdrop-filter: blur(20px);
-            border-top: 1px solid rgba(255,255,255,0.1);
-            padding: 10px 8px; padding-bottom: max(10px, env(safe-area-inset-bottom));
-            position: fixed; bottom: 0; left: 0; right: 0; z-index: 100;
-            box-shadow: 0 -10px 30px rgba(0,0,0,0.5);
-        }
-        .new-nav-btn {
-            display: flex; flex-direction: column; align-items: center; gap: 4px;
-            background: transparent; border: none; cursor: pointer; color: var(--muted);
-            padding: 8px 12px; border-radius: 14px; transition: 0.2s;
-        }
-        .new-nav-btn.active { color: var(--gold); background: rgba(255,217,102,0.1); }
-        .new-nav-btn .icon { font-size: 1.4rem; }
-        .new-nav-btn.active .icon { transform: scale(1.1); filter: drop-shadow(0 0 8px var(--gold)); }
-        .new-nav-btn .label { font-size: 0.6rem; font-weight: 700; text-transform: uppercase; }
-
-        /* Отступ для контента, чтобы меню не перекрывало игру */
-        .game-container { padding-bottom: 80px !important; }
-
-        /* Шторка "Ещё" */
-        .sheet-overlay {
-            position: fixed; inset: 0; background: rgba(0,0,0,0.7); backdrop-filter: blur(5px);
-            z-index: 200; opacity: 0; pointer-events: none; transition: 0.3s;
-        }
-        .sheet-overlay.show { opacity: 1; pointer-events: auto; }
-        .sheet {
-            position: fixed; bottom: -100%; left: 0; right: 0;
-            background: linear-gradient(145deg, rgba(30,30,60,0.98), rgba(15,15,35,0.98));
-            border-radius: 32px 32px 0 0; padding: 20px;
-            padding-bottom: max(20px, env(safe-area-inset-bottom));
-            z-index: 201; transition: bottom 0.4s cubic-bezier(0.34,1.56,0.64,1);
-            box-shadow: 0 -20px 50px rgba(0,0,0,0.8);
-        }
-        .sheet.show { bottom: 0; }
-        .sheet-handle { width: 40px; height: 4px; background: rgba(255,255,255,0.2); border-radius: 10px; margin: 0 auto 20px; }
-        .sheet-grid { display: grid; grid-template-columns: repeat(3, 1fr); gap: 12px; }
-        .sheet-item {
-            display: flex; flex-direction: column; align-items: center; gap: 8px;
-            padding: 16px 8px; border-radius: 16px;
-            background: linear-gradient(145deg, rgba(255,255,255,0.05), rgba(255,255,255,0.01));
-            border: 1px solid rgba(255,255,255,0.08); color: #fff; cursor: pointer;
-        }
-        .sheet-item:active { background: rgba(255,255,255,0.1); }
-        .sheet-item .icon { font-size: 1.8rem; }
-        .sheet-item .name { font-size: 0.65rem; font-weight: 700; text-align: center; }
-
-        /* Стили для квестов */
-        .quest-card { background: linear-gradient(145deg, rgba(255,255,255,0.03), rgba(255,255,255,0.01)); border: 1px solid rgba(255,255,255,0.08); border-radius: 16px; padding: 14px; display: flex; flex-direction: column; gap: 8px; margin-bottom: 10px; }
-        .quest-card.completed { border-color: rgba(16,185,129,0.5); background: rgba(16,185,129,0.08); }
-        .quest-top { display: flex; justify-content: space-between; align-items: center; }
-        .quest-name { font-family: 'Orbitron', sans-serif; font-size: 0.8rem; font-weight: 800; color: #fff; display: flex; align-items: center; gap: 8px; }
-        .quest-reward { font-size: 0.65rem; color: var(--gold); background: rgba(255,217,102,0.1); padding: 3px 8px; border-radius: 50px; border: 1px solid rgba(255,217,102,0.3); }
-        .quest-progress-bg { width: 100%; height: 6px; background: rgba(0,0,0,0.5); border-radius: 10px; overflow: hidden; }
-        .quest-progress-fill { height: 100%; border-radius: 10px; background: linear-gradient(90deg, var(--violet), var(--pink)); width: 0%; transition: width 0.4s ease; }
-        .quest-card.completed .quest-progress-fill { background: linear-gradient(90deg, var(--green), #059669); }
-        .quest-bottom { display: flex; justify-content: space-between; align-items: center; }
-        .quest-progress-text { font-size: 0.6rem; color: var(--muted); font-weight: 600; }
-        .quest-progress-text b { color: #fff; }
-        .quest-claim-btn { padding: 5px 10px; border: none; border-radius: 8px; font-size: 0.6rem; font-weight: 800; text-transform: uppercase; cursor: pointer; background: rgba(255,255,255,0.1); color: var(--muted); }
-        .quest-card.completed .quest-claim-btn { background: linear-gradient(135deg, var(--green), #059669); color: #fff; }
-        .quest-claim-btn.claimed { background: transparent; color: var(--gold); border: 1px solid rgba(255,217,102,0.3); cursor: default; }
-        `;
-        document.head.appendChild(css);
-    }
-
-    // ═══════════════════════════════════════════════════════
-    // 2. ЛОГИКА КВЕСТОВ
-    // ═══════════════════════════════════════════════════════
-    const QUESTS = [
-        { id: 'clicks_100', name: 'Сделай 100 кликов', icon: '👆', current: 0, target: 100, reward: 50000 },
-        { id: 'buy_3', name: 'Купи 3 улучшения', icon: '🛒', current: 0, target: 3, reward: 100000 },
-        { id: 'earn_1m', name: 'Заработай 1M очков', icon: '💰', current: 0, target: 1000000, reward: 250000 }
-    ];
-    let completedQuests = new Set();
-
-    // Загрузка прогресса квестов (в будущем можно привязать к дате)
-    try {
-        const saved = localStorage.getItem('clicker_quests');
-        if (saved) {
-            const data = JSON.parse(saved);
-            QUESTS.forEach(q => { if (data[q.id]) q.current = data[q.id]; });
-            if (data.completed) completedQuests = new Set(data.completed);
-        }
-    } catch(e) {}
-
-    function saveQuests() {
-        try {
-            const data = {};
-            QUESTS.forEach(q => { data[q.id] = q.current; });
-            data.completed = [...completedQuests];
-            localStorage.setItem('clicker_quests', JSON.stringify(data));
-        } catch(e) {}
-    }
-
-    // Обновление прогресса
-    function updateQuestProgress(id, value) {
-        const quest = QUESTS.find(q => q.id === id);
-        if (quest && value > quest.current) {
-            quest.current = value;
-            saveQuests();
-            if (document.getElementById('tab-quests').classList.contains('active')) {
-                renderQuests();
-            }
-        }
-    }
-
-    // Отрисовка квестов
-    function renderQuests() {
-        const container = document.getElementById('questsList');
-        if (!container) return;
-        container.innerHTML = '';
-
-        QUESTS.forEach(q => {
-            const isCompleted = q.current >= q.target;
-            const isClaimed = completedQuests.has(q.id);
-            const percent = Math.min((q.current / q.target) * 100, 100);
-
-            const card = document.createElement('div');
-            card.className = `quest-card ${isCompleted ? 'completed' : ''}`;
-            
-            card.innerHTML = `
-                <div class="quest-top">
-                    <div class="quest-name"><span>${q.icon}</span> ${q.name}</div>
-                    <div class="quest-reward">+${formatNumber(q.reward)} 🪙</div>
-                </div>
-                <div class="quest-progress-bg"><div class="quest-progress-fill" style="width: ${percent}%"></div></div>
-                <div class="quest-bottom">
-                    <div class="quest-progress-text"><b>${formatNumber(q.current)}</b> / ${formatNumber(q.target)}</div>
-                    <button class="quest-claim-btn ${isClaimed ? 'claimed' : ''}" ${!isCompleted || isClaimed ? 'disabled' : ''}>
-                        ${isClaimed ? '✓ Получено' : 'Забрать'}
-                    </button>
-                </div>
-            `;
-
-            if (isCompleted && !isClaimed) {
-                card.querySelector('.quest-claim-btn').addEventListener('click', () => {
-                    completedQuests.add(q.id);
-                    if (typeof state !== 'undefined') { state.score += q.reward; state.totalEarned += q.reward; }
-                    if (typeof updateUI === 'function') updateUI();
-                    if (typeof saveProgress === 'function') saveProgress();
-                    saveQuests();
-                    renderQuests();
-                    if (typeof toast === 'function') toast(`🎁 Награда получена!`, 'success');
-                });
-            }
-            container.appendChild(card);
-        });
-    }
-
-    function formatNumber(n) {
-        if (n >= 1000000) return (n / 1000000).toFixed(1).replace('.0', '') + 'M';
-        if (n >= 1000) return (n / 1000).toFixed(1).replace('.0', '') + 'K';
-        return n.toString();
-    }
-
-    // ═══════════════════════════════════════════════════════
-    // 3. ПОСТРОЕНИЕ НОВОГО МЕНЮ И ШТОРКИ
-    // ═══════════════════════════════════════════════════════
-    function buildNewMenu() {
-        // 1. Создаем нижнее меню
-        const nav = document.createElement('div');
-        nav.className = 'new-bottom-nav';
-        nav.innerHTML = `
-            <button class="new-nav-btn active" data-tab="shop"><span class="icon">🛒</span><span class="label">Магазин</span></button>
-            <button class="new-nav-btn" data-tab="profile"><span class="icon">👤</span><span class="label">Профиль</span></button>
-            <button class="new-nav-btn" data-tab="ach"><span class="icon">🏆</span><span class="label">Достижения</span></button>
-            <button class="new-nav-btn" data-tab="leaders"><span class="icon">📊</span><span class="label">Лидеры</span></button>
-            <button class="new-nav-btn" id="openSheetBtn"><span class="icon">🎯</span><span class="label">Ещё</span></button>
-        `;
-        document.body.appendChild(nav);
-
-        // 2. Создаем шторку
-        const overlay = document.createElement('div');
-        overlay.className = 'sheet-overlay';
-        overlay.id = 'sheetOverlay';
-        document.body.appendChild(overlay);
-
-        const sheet = document.createElement('div');
-        sheet.className = 'sheet';
-        sheet.id = 'moreSheet';
-        sheet.innerHTML = `
-            <div class="sheet-handle"></div>
-            <div class="sheet-grid">
-                <div class="sheet-item" data-tab="titles"><span class="icon">👑</span><span class="name">Титулы</span></div>
-                <div class="sheet-item" data-tab="battlepass"><span class="icon">🎖️</span><span class="name">Battle Pass</span></div>
-                <div class="sheet-item" data-tab="promo"><span class="icon">🎁</span><span class="name">Промокоды</span></div>
-                <div class="sheet-item" data-tab="daily"><span class="icon">📅</span><span class="name">Ежедневка</span></div>
-                <div class="sheet-item" data-tab="quests"><span class="icon">📜</span><span class="name">Квесты</span></div>
-                <div class="sheet-item" data-tab="settings"><span class="icon">⚙️</span><span class="name">Настройки</span></div>
-            </div>
-        `;
-        document.body.appendChild(sheet);
-
-        // 3. Создаем панель квестов (если её нет)
-        const container = document.querySelector('.tab-content');
-        if (container && !document.getElementById('tab-quests')) {
-            const questPanel = document.createElement('div');
-            questPanel.className = 'tab-panel';
-            questPanel.id = 'tab-quests';
-            questPanel.innerHTML = `
-                <div style="text-align:center; padding: 20px 0;">
-                    <h2 style="font-family:'Orbitron'; color:var(--gold); margin-bottom:4px;">📜 Ежедневные квесты</h2>
-                    <p style="font-size:0.7rem; color:var(--muted); margin-bottom:16px;">Выполняй задания и получай награды</p>
-                </div>
-                <div id="questsList"></div>
-            `;
-            container.appendChild(questPanel);
-        }
-
-        // 4. Логика переключения
-        function switchTab(tabId) {
-            // Снимаем активность со всех
-            document.querySelectorAll('.tab').forEach(t => t.classList.remove('active'));
-            document.querySelectorAll('.new-nav-btn').forEach(t => t.classList.remove('active'));
-            document.querySelectorAll('.tab-panel').forEach(p => p.classList.remove('active'));
-
-            // Находим нужный таб и панель
-            const targetTab = document.querySelector(`.tab[data-tab="${tabId}"]`);
-            const targetPanel = document.getElementById(`tab-${tabId}`);
-
-            if (targetTab) targetTab.classList.add('active');
-            if (targetPanel) targetPanel.classList.add('active');
-
-            // Подсвечиваем кнопку в новом меню
-            const navBtn = document.querySelector(`.new-nav-btn[data-tab="${tabId}"]`);
-            if (navBtn) navBtn.classList.add('active');
-
-            // Спец-логика для некоторых вкладок
-            if (tabId === 'leaders' && typeof loadLeaderboard === 'function') loadLeaderboard();
-            if (tabId === 'profile' && typeof loadMyProfile === 'function') loadMyProfile();
-            if (tabId === 'ach' && typeof renderAchievements === 'function') { renderAchievements(); state.pendingNewAch = 0; if (typeof updateAchUI === 'function') updateAchUI(); }
-            if (tabId === 'quests') renderQuests();
-        }
-
-        // Клики по основным кнопкам
-        nav.querySelectorAll('.new-nav-btn[data-tab]').forEach(btn => {
-            btn.addEventListener('click', () => switchTab(btn.dataset.tab));
-        });
-
-        // Клики по шторке
-        sheet.querySelectorAll('.sheet-item').forEach(item => {
-            item.addEventListener('click', () => {
-                switchTab(item.dataset.tab);
-                closeSheet();
-            });
-        });
-
-        function openSheet() {
-            sheet.classList.add('show');
-            overlay.classList.add('show');
-        }
-        function closeSheet() {
-            sheet.classList.remove('show');
-            overlay.classList.remove('show');
-        }
-
-        document.getElementById('openSheetBtn').addEventListener('click', openSheet);
-        overlay.addEventListener('click', closeSheet);
-    }
-
-    // ═══════════════════════════════════════════════════════
-    // 4. ПЕРЕХВАТ КЛИКОВ И ПОКУПОК ДЛЯ КВЕСТОВ
-    // ═══════════════════════════════════════════════════════
-    let questClickHook = false;
-    let questShopHook = false;
-
-    setInterval(() => {
-        // Клики
-        if (!questClickHook) {
-            const clickBtn = document.getElementById('clickButton');
-            if (clickBtn) {
-                clickBtn.addEventListener('click', () => {
-                    updateQuestProgress('clicks_100', QUESTS.find(q => q.id === 'clicks_100').current + 1);
-                    if (typeof state !== 'undefined') updateQuestProgress('earn_1m', Math.floor(state.totalEarned));
-                });
-                questClickHook = true;
-            }
-        }
-        // Покупки
-        if (!questShopHook) {
-            const upgList = document.getElementById('upgradesList');
-            if (upgList) {
-                upgList.addEventListener('click', (e) => {
-                    const item = e.target.closest('.upgrade-item');
-                    if (item && !item.classList.contains('locked') && !item.classList.contains('purchased')) {
-                        setTimeout(() => {
-                            updateQuestProgress('buy_3', QUESTS.find(q => q.id === 'buy_3').current + 1);
-                        }, 50);
-                    }
-                });
-                questShopHook = true;
-            }
-        }
-    }, 1000);
-
-    // ═══════════════════════════════════════════════════════
-    // 5. ЗАПУСК
-    // ═══════════════════════════════════════════════════════
-    setTimeout(buildNewMenu, 1500);
-    setTimeout(() => {
-        renderQuests();
-        // Если игра уже начислила очки до загрузки, синхронизируем
-        if (typeof state !== 'undefined') updateQuestProgress('earn_1m', Math.floor(state.totalEarned));
-    }, 2500);
-
-    console.log('[MEGA-MENU] ✅ Патч загружен');
-})();
-    
-    // ╔═══════════════════════════════════════════════════════╗
+// ╔═══════════════════════════════════════════════════════╗
 // ║  🎯 ПАТЧ: СЕЙВ-МАСТЕР (ПОЛНАЯ СИНХРОНИЗАЦИЯ)          ║
 // ║  Вставлять ПЕРЕД init();                             ║
 // ╚═══════════════════════════════════════════════════════╝
@@ -6009,95 +5679,65 @@
 })();
     
     // ╔═══════════════════════════════════════════════════════╗
-// ║  🎯 ПАТЧ: НОВОЕ МЕНЮ + КВЕСТЫ (ПК FIX)                ║
+// ║  🎯 ПАТЧ: КРАСИВЫЕ ВКЛАДКИ (ГОРИЗОНТАЛЬНЫЙ СКРОЛЛ)    ║
 // ║  Вставлять ПЕРЕД init();                             ║
 // ╚═══════════════════════════════════════════════════════╝
-(function newMenuPatchFixed() {
-    if (window.__newMenuFixedApplied) return;
-    window.__newMenuFixedApplied = true;
-    console.log('[NEW-MENU-FIX] Старт...');
+(function beautifulTabsPatch() {
+    if (window.__beautifulTabsApplied) return;
+    window.__beautifulTabsApplied = true;
+    console.log('[TABS-FIX] Старт...');
 
-    // ═══════════════════════════════════════════════════════
-    // 1. CSS (С z-index для ПК)
-    // ═══════════════════════════════════════════════════════
-    if (!document.getElementById('new-menu-css')) {
-        const css = document.createElement('style');
-        css.id = 'new-menu-css';
-        css.textContent = `
-        /* Скрываем старые табы */
-        .tabs { display: none !important; }
+    // 1. Добавляем CSS для красивых вкладок
+    if (!document.getElementById('tabs-fix-css')) {
+        const style = document.createElement('style');
+        style.id = 'tabs-fix-css';
+        style.textContent = `
+        /* Делаем панель вкладок прокручиваемой вправо-влево */
+        .tabs {
+            display: flex !important;
+            flex-wrap: nowrap !important; /* Запрещаем перенос на новую строку */
+            overflow-x: auto !important;  /* Включаем горизонтальный скролл */
+            gap: 6px !important;
+            padding: 6px !important;
+            background: rgba(0, 0, 0, 0.5) !important;
+            border-radius: 16px !important;
+            border: 1px solid rgba(255, 255, 255, 0.08) !important;
+            scrollbar-width: none; /* Скрываем скроллбар для Firefox */
+            -webkit-overflow-scrolling: touch; /* Плавный скролл на iOS */
+        }
+        .tabs::-webkit-scrollbar {
+            display: none; /* Скрываем скроллбар для Chrome/Safari */
+        }
 
-        /* Нижнее меню - фиксируем на самом верху */
-        .new-bottom-nav {
-            display: flex; justify-content: space-around;
-            background: rgba(15, 15, 30, 0.95); backdrop-filter: blur(20px);
-            border-top: 1px solid rgba(255,255,255,0.1);
-            padding: 10px 8px; padding-bottom: max(10px, env(safe-area-inset-bottom));
-            position: fixed; bottom: 0; left: 0; right: 0; z-index: 99999;
-            box-shadow: 0 -10px 30px rgba(0,0,0,0.5);
+        /* Сами кнопки */
+        .tab {
+            flex: 0 0 auto !important; /* Кнопки не сжимаются, сохраняют размер */
+            padding: 10px 16px !important;
+            border-radius: 12px !important;
+            font-size: 0.75rem !important;
+            white-space: nowrap !important;
+            transition: all 0.3s ease !important;
+            background: rgba(255, 255, 255, 0.03) !important;
+            border: 1px solid rgba(255, 255, 255, 0.05) !important;
         }
-        .new-nav-btn {
-            display: flex; flex-direction: column; align-items: center; gap: 4px;
-            background: transparent; border: none; cursor: pointer; color: var(--muted);
-            padding: 8px 12px; border-radius: 14px; transition: 0.2s;
-            position: relative; z-index: 1;
-        }
-        .new-nav-btn.active { color: var(--gold); background: rgba(255,217,102,0.1); }
-        .new-nav-btn .icon { font-size: 1.4rem; pointer-events: none; }
-        .new-nav-btn.active .icon { filter: drop-shadow(0 0 8px var(--gold)); }
-        .new-nav-btn .label { font-size: 0.6rem; font-weight: 700; text-transform: uppercase; pointer-events: none; }
 
-        /* Отступ для контента, чтобы меню не перекрывало */
-        .game-container { padding-bottom: 90px !important; }
+        /* Активная кнопка */
+        .tab.active {
+            background: linear-gradient(135deg, rgba(255, 217, 102, 0.2), rgba(255, 179, 71, 0.15)) !important;
+            color: #ffd966 !important;
+            border-color: rgba(255, 217, 102, 0.4) !important;
+            box-shadow: 0 0 15px rgba(255, 179, 71, 0.2) !important;
+        }
 
-        /* Шторка */
-        .sheet-overlay {
-            position: fixed; inset: 0; background: rgba(0,0,0,0.7); backdrop-filter: blur(5px);
-            z-index: 999999; opacity: 0; pointer-events: none; transition: 0.3s;
+        /* Иконки внутри кнопок */
+        .tab .icon {
+            font-size: 1.1rem !important;
         }
-        .sheet-overlay.show { opacity: 1; pointer-events: auto; }
-        .sheet {
-            position: fixed; bottom: -100%; left: 0; right: 0;
-            background: linear-gradient(145deg, rgba(30,30,60,0.98), rgba(15,15,35,0.98));
-            border-radius: 32px 32px 0 0; padding: 20px;
-            padding-bottom: max(20px, env(safe-area-inset-bottom));
-            z-index: 1000000; transition: bottom 0.4s cubic-bezier(0.34,1.56,0.64,1);
-        }
-        .sheet.show { bottom: 0; }
-        .sheet-handle { width: 40px; height: 4px; background: rgba(255,255,255,0.2); border-radius: 10px; margin: 0 auto 20px; }
-        .sheet-grid { display: grid; grid-template-columns: repeat(3, 1fr); gap: 12px; }
-        .sheet-item {
-            display: flex; flex-direction: column; align-items: center; gap: 8px;
-            padding: 16px 8px; border-radius: 16px;
-            background: linear-gradient(145deg, rgba(255,255,255,0.05), rgba(255,255,255,0.01));
-            border: 1px solid rgba(255,255,255,0.08); color: #fff; cursor: pointer;
-        }
-        .sheet-item:active { background: rgba(255,255,255,0.1); }
-        .sheet-item .icon { font-size: 1.8rem; }
-        .sheet-item .name { font-size: 0.65rem; font-weight: 700; text-align: center; }
-
-        /* Квесты */
-        .quest-card { background: linear-gradient(145deg, rgba(255,255,255,0.03), rgba(255,255,255,0.01)); border: 1px solid rgba(255,255,255,0.08); border-radius: 16px; padding: 14px; display: flex; flex-direction: column; gap: 8px; margin-bottom: 10px; }
-        .quest-card.completed { border-color: rgba(16,185,129,0.5); background: rgba(16,185,129,0.08); }
-        .quest-top { display: flex; justify-content: space-between; align-items: center; }
-        .quest-name { font-family: 'Orbitron', sans-serif; font-size: 0.8rem; font-weight: 800; color: #fff; display: flex; align-items: center; gap: 8px; }
-        .quest-reward { font-size: 0.65rem; color: var(--gold); background: rgba(255,217,102,0.1); padding: 3px 8px; border-radius: 50px; border: 1px solid rgba(255,217,102,0.3); }
-        .quest-progress-bg { width: 100%; height: 6px; background: rgba(0,0,0,0.5); border-radius: 10px; overflow: hidden; }
-        .quest-progress-fill { height: 100%; border-radius: 10px; background: linear-gradient(90deg, var(--violet), var(--pink)); width: 0%; transition: width 0.4s ease; }
-        .quest-card.completed .quest-progress-fill { background: linear-gradient(90deg, var(--green), #059669); }
-        .quest-bottom { display: flex; justify-content: space-between; align-items: center; }
-        .quest-progress-text { font-size: 0.6rem; color: var(--muted); font-weight: 600; }
-        .quest-progress-text b { color: #fff; }
-        .quest-claim-btn { padding: 5px 10px; border: none; border-radius: 8px; font-size: 0.6rem; font-weight: 800; text-transform: uppercase; cursor: pointer; background: rgba(255,255,255,0.1); color: var(--muted); }
-        .quest-card.completed .quest-claim-btn { background: linear-gradient(135deg, var(--green), #059669); color: #fff; }
-        .quest-claim-btn.claimed { background: transparent; color: var(--gold); border: 1px solid rgba(255,217,102,0.3); cursor: default; }
         `;
-        document.head.appendChild(css);
+        document.head.appendChild(style);
     }
 
-    // ═══════════════════════════════════════════════════════
-    // 2. ЛОГИКА КВЕСТОВ
-    // ═══════════════════════════════════════════════════════
+    // 2. Логика для квестов (переносим сюда)
     const QUESTS = [
         { id: 'clicks_100', name: 'Сделай 100 кликов', icon: '👆', current: 0, target: 100, reward: 50000 },
         { id: 'buy_3', name: 'Купи 3 улучшения', icon: '🛒', current: 0, target: 3, reward: 100000 },
@@ -6177,45 +5817,8 @@
         });
     }
 
-    // ═══════════════════════════════════════════════════════
-    // 3. ПОСТРОЕНИЕ МЕНЮ
-    // ═══════════════════════════════════════════════════════
-    function buildMenu() {
-        // Нижнее меню
-        const nav = document.createElement('div');
-        nav.className = 'new-bottom-nav';
-        nav.innerHTML = `
-            <button class="new-nav-btn active" data-tab="shop"><span class="icon">🛒</span><span class="label">Магазин</span></button>
-            <button class="new-nav-btn" data-tab="profile"><span class="icon">👤</span><span class="label">Профиль</span></button>
-            <button class="new-nav-btn" data-tab="ach"><span class="icon">🏆</span><span class="label">Достижения</span></button>
-            <button class="new-nav-btn" data-tab="leaders"><span class="icon">📊</span><span class="label">Лидеры</span></button>
-            <button class="new-nav-btn" id="openSheetBtn"><span class="icon">🎯</span><span class="label">Ещё</span></button>
-        `;
-        document.body.appendChild(nav);
-
-        // Шторка
-        const overlay = document.createElement('div');
-        overlay.className = 'sheet-overlay';
-        overlay.id = 'sheetOverlay';
-        document.body.appendChild(overlay);
-
-        const sheet = document.createElement('div');
-        sheet.className = 'sheet';
-        sheet.id = 'moreSheet';
-        sheet.innerHTML = `
-            <div class="sheet-handle"></div>
-            <div class="sheet-grid">
-                <div class="sheet-item" data-action="titles"><span class="icon">👑</span><span class="name">Титулы</span></div>
-                <div class="sheet-item" data-action="battlepass"><span class="icon">🎖️</span><span class="name">Battle Pass</span></div>
-                <div class="sheet-item" data-action="promo"><span class="icon">🎁</span><span class="name">Промокоды</span></div>
-                <div class="sheet-item" data-action="daily"><span class="icon">📅</span><span class="name">Ежедневка</span></div>
-                <div class="sheet-item" data-action="quests"><span class="icon">📜</span><span class="name">Квесты</span></div>
-                <div class="sheet-item" data-action="settings"><span class="icon">⚙️</span><span class="name">Настройки</span></div>
-            </div>
-        `;
-        document.body.appendChild(sheet);
-
-        // Панель квестов
+    // 3. Создаем панель квестов в старом контейнере
+    setTimeout(() => {
         const container = document.querySelector('.tab-content');
         if (container && !document.getElementById('tab-quests')) {
             const qp = document.createElement('div');
@@ -6231,83 +5834,34 @@
             container.appendChild(qp);
         }
 
-        // Переключение вкладок
-        function switchTab(tabId) {
-            const targetTab = document.querySelector(`.tab[data-tab="${tabId}"]`);
-            if (targetTab) {
-                targetTab.click();
-            } else {
+        // Добавляем кнопку для квестов в старую панель вкладок
+        const tabs = document.querySelector('.tabs');
+        if (tabs && !tabs.querySelector('[data-tab="quests"]')) {
+            const questBtn = document.createElement('button');
+            questBtn.className = 'tab';
+            questBtn.dataset.tab = 'quests';
+            questBtn.innerHTML = '📜 Квесты';
+            
+            // Вставляем перед настройками
+            const settingsTab = tabs.querySelector('[data-tab="settings"]');
+            if (settingsTab) tabs.insertBefore(questBtn, settingsTab);
+            else tabs.appendChild(questBtn);
+
+            // Логика переключения
+            questBtn.addEventListener('click', () => {
+                document.querySelectorAll('.tab').forEach(t => t.classList.remove('active'));
                 document.querySelectorAll('.tab-panel').forEach(p => p.classList.remove('active'));
-                const panel = document.getElementById(`tab-${tabId}`);
-                if (panel) panel.classList.add('active');
-            }
-
-            document.querySelectorAll('.new-nav-btn').forEach(b => b.classList.remove('active'));
-            const navBtn = document.querySelector(`.new-nav-btn[data-tab="${tabId}"]`);
-            if (navBtn) navBtn.classList.add('active');
-
-            if (tabId === 'leaders' && typeof loadLeaderboard === 'function') loadLeaderboard();
-            if (tabId === 'profile' && typeof loadMyProfile === 'function') loadMyProfile();
-            if (tabId === 'ach' && typeof renderAchievements === 'function') renderAchievements();
-            if (tabId === 'quests') renderQuests();
+                questBtn.classList.add('active');
+                document.getElementById('tab-quests').classList.add('active');
+                renderQuests();
+            });
         }
 
-        // Функции шторки
-        function openSheet() {
-            sheet.classList.add('show');
-            overlay.classList.add('show');
-        }
-        function closeSheet() {
-            sheet.classList.remove('show');
-            overlay.classList.remove('show');
-        }
-
-        // Привязка кнопок меню
-        nav.querySelectorAll('.new-nav-btn[data-tab]').forEach(btn => {
-            btn.onclick = () => switchTab(btn.dataset.tab);
-        });
-
-        // Привязка кнопки "Ещё" (с защитой для ПК)
-        const sheetBtn = document.getElementById('openSheetBtn');
-        if (sheetBtn) {
-            sheetBtn.style.position = 'relative';
-            sheetBtn.style.zIndex = '9999';
-            sheetBtn.onclick = (e) => { e.preventDefault(); openSheet(); };
-        }
-        overlay.onclick = closeSheet;
-
-        // Клики по шторке
-        sheet.querySelectorAll('.sheet-item').forEach(item => {
-            item.onclick = () => {
-                closeSheet();
-                const action = item.dataset.action;
-
-                if (action === 'daily') {
-                    // Пробуем открыть ежедневку разными способами
-                    const dailyBtn = document.querySelector('.tab[data-tab="daily"]');
-                    if (dailyBtn) {
-                        dailyBtn.click();
-                    } else if (typeof window.openDailyModal === 'function') {
-                        window.openDailyModal();
-                    } else {
-                        // Если кнопки нет вообще, ищем по эмодзи
-                        document.querySelectorAll('.tab').forEach(t => {
-                            if (t.innerHTML.includes('🎁')) t.click();
-                        });
-                    }
-                    return;
-                }
-                switchTab(action);
-            };
-        });
-
-        // Запускаем рендер квестов
+        // Рендерим квесты сразу
         renderQuests();
-    }
+    }, 1500);
 
-    // ═══════════════════════════════════════════════════════
-    // 4. ХУКИ ДЛЯ КВЕСТОВ
-    // ═══════════════════════════════════════════════════════
+    // 4. Хуки для квестов
     let clickHook = false, shopHook = false;
     setInterval(() => {
         if (!clickHook) {
@@ -6338,13 +5892,7 @@
         }
     }, 1000);
 
-    // Запуск
-    setTimeout(buildMenu, 1500);
-    setTimeout(() => {
-        if (typeof state !== 'undefined') updateQuestProgress('earn_1m', Math.floor(state.totalEarned));
-    }, 2500);
-
-    console.log('[NEW-MENU-FIX] ✅ Патч загружен');
+    console.log('[TABS-FIX] ✅ Патч загружен');
 })();
     
     init();
