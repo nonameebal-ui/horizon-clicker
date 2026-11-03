@@ -1810,6 +1810,99 @@
 
     console.log('[APP] ✅ Игра успешно инициализирована!');
     
+    // ╔═══════════════════════════════════════════════════════╗
+// ║  🎯 ПАТЧ: ФИКС force_sync (не трогает основной код)  ║
+// ║  Вставлять ПЕРЕД init();                             ║
+// ╚═══════════════════════════════════════════════════════╝
+(function fixForceSyncPatch() {
+    if (window.__forceSyncFixApplied) return;
+    window.__forceSyncFixApplied = true;
+    console.log('[FIX-FORCE-SYNC] Старт...');
+
+    // 1. Переопределяем autoSyncProgress — без force_sync
+    if (typeof autoSyncProgress === 'function' && !window.__origAutoSync) {
+        window.__origAutoSync = autoSyncProgress;
+        window.autoSyncProgress = async function() {
+            if (typeof state === 'undefined' || !state.playerName) return;
+            if (typeof debugConsole !== 'undefined') debugConsole.info(`🔄 Автосинхронизация "${state.playerName}"...`);
+            try {
+                const me = await sbFetch(`leaderboard?player_name=ilike.${encodeURIComponent(String(state.playerName).replace(/[\\%_]/g, m => "\\" + m))}&select=id,score,total_clicks,upgrades,achievements,manual_clicks`);
+                if (!me || me.length === 0) { if (typeof debugConsole !== 'undefined') debugConsole.info('ℹ️ Записей нет'); return; }
+                const r = me[0];
+
+                const rs = Number(r.score) || 0;
+                const restored = [];
+                if (rs > state.score) { state.score = rs; state.bestScore = rs; restored.push(`счёт: ${formatNumber(rs)}`); }
+                if (r.total_clicks && r.total_clicks > state.totalClicks) state.totalClicks = r.total_clicks;
+                if (r.upgrades) { try { const l = typeof r.upgrades === 'string' ? JSON.parse(r.upgrades) : r.upgrades; let c = 0; UPGRADES.forEach(u => { const d = l[u.id] || 0; if (d > u.level) { u.level = Math.min(d, u.maxLevel); c++; } }); if (c > 0) restored.push(`улучшения: ${c}`); } catch(e) {} }
+                if (r.achievements) { try { const arr = typeof r.achievements === 'string' ? JSON.parse(r.achievements) : r.achievements; if (Array.isArray(arr)) { let added = 0; arr.forEach(id => { if (!state.unlockedAchievements.has(id)) { state.unlockedAchievements.add(id); added++; } }); if (added > 0) { recalcAchBonus(); restored.push(`достижения: ${added}`); } } } catch(e) {} }
+                if (r.manual_clicks && r.manual_clicks > state.manualClicks) state.manualClicks = r.manual_clicks;
+                recalcStats(); saveProgress();
+                if (restored.length > 0 && typeof debugConsole !== 'undefined') debugConsole.success(`✅ Загружено — ${restored.join(', ')}`);
+            } catch(e) { if (typeof debugConsole !== 'undefined') debugConsole.warn(`⚠️ Автосинхр: ${e.message}`); }
+        };
+        try { autoSyncProgress = window.autoSyncProgress; } catch(e) {}
+    }
+
+    // 2. Переопределяем submitScore — без force_sync в payload
+    if (typeof submitScore === 'function' && !window.__origSubmitScoreFS) {
+        window.__origSubmitScoreFS = submitScore;
+        window.submitScore = async function() {
+            if (typeof state === 'undefined' || !state.playerName) { toast?.('Сначала введите имя!', 'error'); return; }
+            const now = Date.now();
+            if (now - state.lastSubmit < 15000) { toast?.(`Подождите ${Math.ceil((15000 - (now - state.lastSubmit)) / 1000)} сек.`, 'error'); return; }
+            if (state.score < 100) { toast?.('Минимум 100 очков', 'error'); return; }
+            const btn = document.getElementById('submitScoreBtn');
+            const status = document.getElementById('submitStatus');
+            if (btn) btn.disabled = true;
+            if (status) status.textContent = 'Отправка...';
+            try {
+                const payload = {
+                    player_name: state.playerName, score: Math.floor(state.score),
+                    total_clicks: Math.floor(state.totalClicks), per_click: Math.floor(state.clickMultiplier * (1 + state.achBonus)),
+                    upgrades: (function(){ const up = {}; UPGRADES.forEach(u => { up[u.id] = u.level; }); return up; })(),
+                    achievements: [...state.unlockedAchievements],
+                    manual_clicks: state.manualClicks
+                };
+                const existing = await sbFetch(`leaderboard?player_name=ilike.${encodeURIComponent(String(state.playerName).replace(/[\\%_]/g, m => "\\" + m))}&select=id,score,player_name`);
+                const prev = (existing || []).find(r => String(r.player_name || '').toLowerCase() === String(state.playerName).toLowerCase());
+                if (prev) {
+                    if (Math.floor(state.score) <= prev.score) { toast?.(`Рекорд ${formatNumber(prev.score)} не побит`, 'error'); if (status) status.textContent = `Рекорд: ${formatNumber(prev.score)}`; if (btn) btn.disabled = false; return; }
+                    await sbFetch(`leaderboard?id=eq.${prev.id}`, { method: 'PATCH', headers: { 'Prefer': 'return=minimal' }, body: JSON.stringify(payload) });
+                    toast?.('🏆 Новый рекорд!', 'success');
+                    if (typeof debugConsole !== 'undefined') debugConsole.success(`🏆 Рекорд: ${formatNumber(state.score)} (было ${formatNumber(prev.score)})`);
+                } else {
+                    await sbFetch('leaderboard', { method: 'POST', headers: { 'Prefer': 'return=minimal' }, body: JSON.stringify(payload) });
+                    toast?.('✅ Сохранено!', 'success');
+                    if (typeof debugConsole !== 'undefined') debugConsole.success(`✅ Первая запись: ${formatNumber(state.score)}`);
+                }
+                state.lastSubmit = now;
+                if (status) status.textContent = `Сохранено: ${formatNumber(state.score)}`;
+                if (typeof loadMyProfile === 'function') loadMyProfile();
+            } catch (e) {
+                if (status) status.textContent = 'Ошибка';
+                toast?.('Не удалось сохранить', 'error');
+                if (typeof debugConsole !== 'undefined') debugConsole.error(`❌ ${e.message}`);
+            } finally { if (btn) btn.disabled = false; }
+        };
+        try { submitScore = window.submitScore; } catch(e) {}
+    }
+
+    // 3. Убираем кнопку force-sync из админки, если она есть
+    setTimeout(() => {
+        const btn = document.getElementById('adminPlayerForceSync');
+        if (btn) {
+            btn.disabled = true;
+            btn.style.opacity = '0.4';
+            btn.style.cursor = 'not-allowed';
+            btn.textContent = '⚡ Недоступно (колонки удалены)';
+            btn.title = 'Функция отключена: force_sync удалён из базы';
+        }
+    }, 2000);
+
+    console.log('[FIX-FORCE-SYNC] ✅ Патч загружен');
+})();
+    
     init();
 })();
 </script>
