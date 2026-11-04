@@ -1559,7 +1559,18 @@
 
     setInterval(saveProgress, 5000);
     window.addEventListener('beforeunload', saveProgress);
-
+    
+    // ==========================================
+    // 🔓 ЭКСПОРТ ФУНКЦИЙ ДЛЯ ПАТЧЕЙ
+    // ==========================================
+    window.state = state;
+    window.sbFetch = sbFetch;
+    window.toast = toast;
+    window.saveProgress = saveProgress;
+    window.autoSyncProgress = autoSyncProgress;
+    window.renderShop = renderShop;
+    window.updateUI = updateUI;
+    
     console.log('[APP] ✅ Игра успешно инициализирована!');
     
    // ======================================================
