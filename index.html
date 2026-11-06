@@ -2551,6 +2551,110 @@
     console.log('[TITLES-V3] ✅ Патч загружен');
 })();
     
+    // ======================================================
+// 📱 ПАТЧ: УДОБНАЯ ПАНЕЛЬ ВКЛАДОК (СКРОЛЛ + СТИЛИ)
+// ======================================================
+(function patchTabBar() {
+    console.log('[TAB-BAR] Старт...');
+
+    if (window.__tabBarPatched) return;
+    window.__tabBarPatched = true;
+
+    // ==== CSS ====
+    const style = document.createElement('style');
+    style.id = 'tab-bar-patch-css';
+    style.textContent = `
+        /* Панель вкладок */
+        .tabs {
+            display: flex !important;
+            overflow-x: auto !important;
+            overflow-y: hidden !important;
+            -webkit-overflow-scrolling: touch;
+            scrollbar-width: none; /* Скрыть скроллбар Firefox */
+            padding: 6px !important;
+            gap: 6px !important;
+            background: rgba(0,0,0,0.4) !important;
+            border-radius: 14px !important;
+            border: 1px solid rgba(255,255,255,0.06) !important;
+            scroll-snap-type: x proximity;
+        }
+        
+        .tabs::-webkit-scrollbar {
+            display: none; /* Скрыть скроллбар Chrome/Safari */
+        }
+
+        /* Кнопки вкладок */
+        .tab {
+            flex-shrink: 0 !important;
+            scroll-snap-align: start;
+            padding: 10px 12px !important;
+            font-size: 0.7rem !important;
+            border-radius: 10px !important;
+            background: rgba(255,255,255,0.03) !important;
+            border: 1px solid transparent !important;
+            color: #94a3b8 !important;
+            display: flex !important;
+            align-items: center !important;
+            justify-content: center !important;
+            gap: 4px !important;
+            white-space: nowrap !important;
+            min-width: max-content !important;
+            transition: all 0.2s ease !important;
+        }
+
+        .tab:hover {
+            background: rgba(255,255,255,0.08) !important;
+        }
+
+        /* Активная вкладка (золотая) */
+        .tab.active {
+            background: linear-gradient(135deg, rgba(255,217,102,0.15), rgba(255,179,71,0.1)) !important;
+            border-color: rgba(255,217,102,0.4) !important;
+            color: #ffd966 !important;
+            box-shadow: 0 0 12px rgba(255,179,71,0.2) !important;
+        }
+
+        /* Кнопка настроек всегда справа */
+        .tab[data-tab="settings"] {
+            margin-left: auto !important;
+            position: sticky !important;
+            right: 0 !important;
+            background: rgba(30,30,50,0.95) !important;
+            backdrop-filter: blur(10px);
+            z-index: 2;
+            border-left: 1px solid rgba(255,255,255,0.08) !important;
+        }
+
+        /* Убираем полоску прокрутки на мобильных */
+        body { -webkit-tap-highlight-color: transparent; }
+    `;
+    document.head.appendChild(style);
+
+    // ==== ЛОГИКА ПРОКРУТКИ (Автоцентрирование активной вкладки) ====
+    function scrollToActiveTab() {
+        const activeTab = document.querySelector('.tab.active');
+        if (activeTab && activeTab.parentElement) {
+            const container = activeTab.parentElement;
+            const scrollLeft = activeTab.offsetLeft - (container.offsetWidth / 2) + (activeTab.offsetWidth / 2);
+            container.scrollTo({ left: scrollLeft, behavior: 'smooth' });
+        }
+    }
+
+    // Перехватываем клики по вкладкам, чтобы при переключении они сами прокручивались к центру
+    document.addEventListener('click', (e) => {
+        const tab = e.target.closest('.tab');
+        if (tab) {
+            // Небольшая задержка, чтобы класс .active успел примениться
+            setTimeout(scrollToActiveTab, 50);
+        }
+    });
+
+    // Первичная прокрутка (если вдруг вкладка была открыта ранее)
+    setTimeout(scrollToActiveTab, 1000);
+
+    console.log('[TAB-BAR] ✅ Патч панели вкладок загружен');
+})();
+    
     init();
 })();
 </script>
