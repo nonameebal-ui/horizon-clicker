@@ -2023,20 +2023,16 @@
         setTimeout(() => safeToast(`👑 Титул «Легенда» получен! +20% к PP`, 'success'), 500);
     }
 
-    function applyTitleToProfile() {
-        const nameEl = document.getElementById('profileName');
-        if (!nameEl) return;
-        let badge = document.getElementById('myPrestigeTitleBadge');
-        if (!badge) { badge = document.createElement('span'); badge.id = 'myPrestigeTitleBadge'; badge.className = 'ptitle-badge-profile'; nameEl.appendChild(badge); }
-        if (P.titleOwned && P.equippedTitle === 'legend') { badge.textContent = '👑 Легенда'; badge.style.display = 'inline-flex'; }
-        else badge.style.display = 'none';
-    }
+        function applyTitleToProfile() {
+        const oldBadge = document.getElementById('myPrestigeTitleBadge');
+        if (oldBadge) oldBadge.remove();
+        }
 
-    if (typeof updateProfileUI === 'function' && !window.__origUpdateProfileUIPrestige) {
-        window.__origUpdateProfileUIPrestige = updateProfileUI;
-        window.updateProfileUI = function() { window.__origUpdateProfileUIPrestige.apply(this, arguments); applyTitleToProfile(); };
-        try { updateProfileUI = window.updateProfileUI; } catch(e) {}
-    }
+        // if (typeof updateProfileUI === 'function' && !window.__origUpdateProfileUIPrestige) {
+    //     window.__origUpdateProfileUIPrestige = updateProfileUI;
+    //     window.updateProfileUI = function() { window.__origUpdateProfileUIPrestige.apply(this, arguments); applyTitleToProfile(); };
+    //     try { updateProfileUI = window.updateProfileUI; } catch(e) {}
+    // }
 
     function renderPrestigePanel() {
         const panel = document.getElementById('tab-prestige');
