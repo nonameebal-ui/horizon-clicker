@@ -1561,6 +1561,325 @@
     window.addEventListener('beforeunload', saveProgress);
 
     console.log('[APP] ✅ Игра успешно инициализирована!');
+    
+    // ╔═══════════════════════════════════════════════════════╗
+// ║  🎯 ПАТЧ: КРАСИВЫЙ ПРОФИЛЬ                            ║
+// ╚═══════════════════════════════════════════════════════╝
+(function patchProfileBeauty() {
+    console.log('[PATCH-PROFILE] Старт...');
+
+    // ======================================================
+    // CSS
+    // ======================================================
+    if (!document.getElementById('patchProfileStyle')) {
+        const style = document.createElement('style');
+        style.id = 'patchProfileStyle';
+        style.textContent = `
+            /* ===== Красивый профиль ===== */
+            .profile-hero {
+                position: relative !important;
+                border-radius: 28px !important;
+                padding: 32px 22px 28px !important;
+                overflow: hidden !important;
+                background: linear-gradient(145deg, rgba(30,30,60,0.65), rgba(15,15,35,0.75)) !important;
+                border: 1px solid rgba(255,255,255,0.1) !important;
+                box-shadow: 0 30px 80px rgba(0,0,0,0.7), 0 0 0 1px rgba(255,255,255,0.05), inset 0 1px 0 rgba(255,255,255,0.15) !important;
+                backdrop-filter: blur(24px) saturate(180%);
+                transition: transform 0.3s ease, box-shadow 0.3s ease;
+                margin-bottom: 16px;
+            }
+            .profile-hero:hover {
+                box-shadow: 0 34px 90px rgba(0,0,0,0.8), 0 0 0 1px rgba(255,255,255,0.08), inset 0 1px 0 rgba(255,255,255,0.18), 0 0 60px rgba(139,92,246,0.15) !important;
+            }
+            .profile-hero::before {
+                content: ''; position: absolute; top: 0; left: 10%; right: 10%; height: 1px;
+                background: linear-gradient(90deg, transparent, rgba(255,217,102,0.9), rgba(236,72,153,0.9), transparent);
+                animation: patchTopLine 4s ease-in-out infinite alternate;
+                z-index: 2; pointer-events: none;
+            }
+            @keyframes patchTopLine { 0% { opacity: 0.5; transform: translateX(-5%); } 100% { opacity: 1; transform: translateX(5%); } }
+
+            .profile-hero-bg { display: none !important; }
+
+            .patch-hero-orb { position: absolute; border-radius: 50%; filter: blur(60px); pointer-events: none; z-index: 0; }
+            .patch-hero-orb.a { width: 260px; height: 260px; background: radial-gradient(circle, rgba(139,92,246,0.55), transparent 70%); top: -120px; left: -100px; animation: patchOrbA 12s ease-in-out infinite; }
+            .patch-hero-orb.b { width: 260px; height: 260px; background: radial-gradient(circle, rgba(236,72,153,0.45), transparent 70%); bottom: -130px; right: -100px; animation: patchOrbB 14s ease-in-out infinite; }
+            @keyframes patchOrbA { 0%,100%{transform:translate(0,0) scale(1);} 50%{transform:translate(50px,40px) scale(1.15);} }
+            @keyframes patchOrbB { 0%,100%{transform:translate(0,0) scale(1);} 50%{transform:translate(-50px,-40px) scale(1.1);} }
+
+            .patch-float-particles { position: absolute; inset: 0; pointer-events: none; overflow: hidden; z-index: 0; }
+            .patch-fp { position: absolute; border-radius: 50%; opacity: 0; animation: patchFpRise linear infinite; }
+            @keyframes patchFpRise {
+                0% { opacity: 0; transform: translateY(0) scale(0.5); }
+                20% { opacity: 0.8; }
+                80% { opacity: 0.5; }
+                100% { opacity: 0; transform: translateY(-200px) scale(1); }
+            }
+
+            .profile-hero-content { position: relative !important; z-index: 2 !important; display: flex !important; flex-direction: column !important; align-items: center !important; text-align: center !important; }
+
+            .profile-avatar-wrap { width: 108px !important; height: 108px !important; margin-bottom: 18px !important; }
+            .profile-avatar-ring { inset: -7px !important; filter: blur(2px) !important; opacity: 0.9 !important; }
+            .profile-avatar-ring::after {
+                content: ''; position: absolute; inset: 6px; border-radius: 50%;
+                background: #0a0a1a; z-index: 0;
+            }
+            .profile-avatar-big {
+                width: 108px !important; height: 108px !important;
+                font-size: 3.2rem !important;
+                border: 3px solid rgba(15,15,35,0.9) !important;
+                z-index: 2 !important;
+                text-shadow: 0 0 20px rgba(255,255,255,0.5);
+                transition: transform 0.3s cubic-bezier(0.34,1.56,0.64,1);
+            }
+            .profile-avatar-big:hover { transform: scale(1.06); }
+            .patch-avatar-glow {
+                position: absolute; inset: -22px; border-radius: 50%;
+                background: radial-gradient(circle, rgba(139,92,246,0.5), transparent 65%);
+                animation: patchAvatarPulse 2.4s ease-in-out infinite;
+                z-index: 0; pointer-events: none;
+            }
+            @keyframes patchAvatarPulse { 0%,100% { opacity: 0.5; transform: scale(0.95); } 50% { opacity: 1; transform: scale(1.12); } }
+
+            .profile-name-big {
+                font-size: 1.55rem !important;
+                letter-spacing: 1px !important;
+                margin-bottom: 0 !important;
+                padding-bottom: 14px !important;
+                position: relative;
+                background: linear-gradient(135deg, #fff8dc 0%, #ffd966 40%, #ffb347 70%, #ff7e5f 100%) !important;
+                -webkit-background-clip: text !important; background-clip: text !important;
+                -webkit-text-fill-color: transparent !important;
+                filter: drop-shadow(0 0 18px rgba(255,179,71,0.4)) !important;
+            }
+            .profile-name-big::after {
+                content: ''; position: absolute; left: 20%; right: 20%; bottom: 0; height: 1px;
+                background: linear-gradient(90deg, transparent, rgba(255,217,102,0.6), transparent);
+            }
+
+            /* Карточки статистики */
+            .profile-stats-grid { gap: 10px !important; }
+            .profile-stat-card {
+                border-radius: 18px !important;
+                padding: 16px 14px !important;
+                background: linear-gradient(145deg, rgba(30,30,60,0.7), rgba(15,15,35,0.7)) !important;
+                transition: transform 0.25s ease, box-shadow 0.25s ease, border-color 0.25s ease !important;
+                cursor: pointer;
+            }
+            .profile-stat-card.gold:hover { border-color: rgba(255,217,102,0.4) !important; box-shadow: 0 10px 30px rgba(255,179,71,0.25) !important; transform: translateY(-3px); }
+            .profile-stat-card.green:hover { border-color: rgba(16,185,129,0.4) !important; box-shadow: 0 10px 30px rgba(16,185,129,0.25) !important; transform: translateY(-3px); }
+            .profile-stat-card.blue:hover { border-color: rgba(14,165,233,0.4) !important; box-shadow: 0 10px 30px rgba(14,165,233,0.25) !important; transform: translateY(-3px); }
+            .profile-stat-card.purple:hover { border-color: rgba(139,92,246,0.4) !important; box-shadow: 0 10px 30px rgba(139,92,246,0.25) !important; transform: translateY(-3px); }
+
+            .patch-stat-mini-bar { height: 4px; background: rgba(0,0,0,0.5); border-radius: 50px; overflow: hidden; margin-top: 10px; }
+            .patch-stat-mini-fill { height: 100%; border-radius: 50px; transition: width 0.6s cubic-bezier(0.34,1.56,0.64,1); }
+            .profile-stat-card.gold .patch-stat-mini-fill { background: linear-gradient(90deg, #ffd966, #ff7e5f); }
+            .profile-stat-card.green .patch-stat-mini-fill { background: linear-gradient(90deg, #10b981, #22d3ee); }
+            .profile-stat-card.blue .patch-stat-mini-fill { background: linear-gradient(90deg, #0ea5e9, #8b5cf6); }
+            .profile-stat-card.purple .patch-stat-mini-fill { background: linear-gradient(90deg, #8b5cf6, #ec4899); }
+            .patch-stat-mini-label { font-size: 0.6rem; color: #94a3b8; margin-top: 6px; font-weight: 600; letter-spacing: 0.3px; }
+
+            .profile-stat-value { transition: none !important; }
+
+            /* Low graphics */
+            body.low-graphics .patch-hero-orb,
+            body.low-graphics .patch-float-particles,
+            body.low-graphics .patch-avatar-glow { display: none !important; }
+            body.low-graphics .profile-hero::before { animation: none !important; }
+            body.low-graphics .profile-hero { backdrop-filter: none !important; background: rgba(20,20,40,0.95) !important; }
+
+            @media (max-width: 480px) {
+                .profile-hero { padding: 24px 16px 22px !important; border-radius: 24px !important; }
+                .profile-name-big { font-size: 1.25rem !important; }
+                .profile-avatar-wrap, .profile-avatar-big { width: 88px !important; height: 88px !important; }
+                .profile-avatar-big { font-size: 2.5rem !important; }
+                .profile-stat-card { padding: 13px 11px !important; }
+                .profile-stat-value { font-size: 1rem !important; }
+            }
+        `;
+        document.head.appendChild(style);
+    }
+
+    // ======================================================
+    // Константы
+    // ======================================================
+    const MAX_EARNED = 1e13;
+    const MAX_IPS = 100000;
+    const MAX_PER_CLICK = 10000;
+    const MAX_CLICKS = 1000000;
+
+    function fmt(n) {
+        if (typeof formatNumber === 'function') return formatNumber(n);
+        if (n < 1000) return Math.floor(n).toString();
+        const units = [{v:1e3,s:'K'},{v:1e6,s:'M'},{v:1e9,s:'B'},{v:1e12,s:'T'},{v:1e15,s:'Qa'}];
+        for (let i = units.length - 1; i >= 0; i--) {
+            if (n >= units[i].v) { const v = n / units[i].v; return v.toFixed(v < 10 ? 2 : v < 100 ? 1 : 0) + units[i].s; }
+        }
+        return Math.floor(n).toString();
+    }
+
+    // ======================================================
+    // Анимация чисел
+    // ======================================================
+    const patchNumAnimators = {};
+    function patchAnimateNumber(el, target) {
+        if (!el) return;
+        const id = el.id || 'patch-' + Math.random().toString(36).slice(2);
+        if (patchNumAnimators[id]) cancelAnimationFrame(patchNumAnimators[id].raf);
+        const start = patchNumAnimators[id] ? patchNumAnimators[id].current : (parseFloat(el.dataset.patchRaw) || 0);
+        const startTime = performance.now();
+        const duration = 500;
+        const obj = { raf: null, current: start };
+        patchNumAnimators[id] = obj;
+        function tick(now) {
+            const p = Math.min(1, (now - startTime) / duration);
+            const eased = 1 - Math.pow(1 - p, 3);
+            obj.current = start + (target - start) * eased;
+            el.textContent = fmt(obj.current);
+            el.dataset.patchRaw = String(obj.current);
+            if (p < 1) obj.raf = requestAnimationFrame(tick);
+        }
+        obj.raf = requestAnimationFrame(tick);
+    }
+
+    // ======================================================
+    // Украшение hero-карточки
+    // ======================================================
+    function patchEnhanceHero() {
+        const hero = document.querySelector('.profile-hero');
+        if (!hero || hero.dataset.patchEnhanced === '1') return;
+        hero.dataset.patchEnhanced = '1';
+
+        ['a', 'b'].forEach(cls => {
+            const orb = document.createElement('div');
+            orb.className = 'patch-hero-orb ' + cls;
+            hero.appendChild(orb);
+        });
+
+        const fpContainer = document.createElement('div');
+        fpContainer.className = 'patch-float-particles';
+        const colors = ['#ffd966', '#ffb347', '#ec4899', '#22d3ee', '#8b5cf6'];
+        for (let i = 0; i < 14; i++) {
+            const p = document.createElement('div');
+            p.className = 'patch-fp';
+            const size = 2 + Math.random() * 4;
+            p.style.width = size + 'px';
+            p.style.height = size + 'px';
+            p.style.background = colors[Math.floor(Math.random() * colors.length)];
+            p.style.left = Math.random() * 100 + '%';
+            p.style.bottom = '0px';
+            p.style.boxShadow = `0 0 ${size * 3}px currentColor`;
+            p.style.color = p.style.background;
+            p.style.animationDuration = (6 + Math.random() * 8) + 's';
+            p.style.animationDelay = (Math.random() * 8) + 's';
+            fpContainer.appendChild(p);
+        }
+        hero.insertBefore(fpContainer, hero.firstChild);
+
+        const avatarWrap = hero.querySelector('.profile-avatar-wrap');
+        if (avatarWrap && !avatarWrap.querySelector('.patch-avatar-glow')) {
+            const glow = document.createElement('div');
+            glow.className = 'patch-avatar-glow';
+            avatarWrap.insertBefore(glow, avatarWrap.firstChild);
+        }
+    }
+
+    // ======================================================
+    // Мини-бары в карточках статистики
+    // ======================================================
+    function patchAddMiniBars() {
+        const cards = document.querySelectorAll('.profile-stats-grid .profile-stat-card');
+        const configs = [
+            { id: 'earned',   max: MAX_EARNED },
+            { id: 'ips',      max: MAX_IPS },
+            { id: 'perClick', max: MAX_PER_CLICK },
+            { id: 'clicks',   max: MAX_CLICKS }
+        ];
+        cards.forEach((card, i) => {
+            if (card.dataset.patchMiniBar === '1') return;
+            const cfg = configs[i];
+            if (!cfg) return;
+            card.dataset.patchMiniBar = '1';
+            const bar = document.createElement('div');
+            bar.className = 'patch-stat-mini-bar';
+            bar.innerHTML = `<div class="patch-stat-mini-fill" id="patchMini-${cfg.id}" style="width:0%"></div>`;
+            const label = document.createElement('div');
+            label.className = 'patch-stat-mini-label';
+            label.id = `patchMiniLabel-${cfg.id}`;
+            label.textContent = `макс: ${fmt(cfg.max)}`;
+            card.appendChild(bar);
+            card.appendChild(label);
+        });
+    }
+
+    // ======================================================
+    // Обновление мини-баров
+    // ======================================================
+    function patchUpdateMiniBars() {
+        if (typeof state === 'undefined') return;
+        const setBar = (id, value, max) => {
+            const fill = document.getElementById('patchMini-' + id);
+            if (fill) fill.style.width = Math.min(100, Math.max(0, (value / max) * 100)) + '%';
+        };
+        const earned = Number(state.totalEarned) || 0;
+        const ips = (typeof calcTotalIps === 'function') ? calcTotalIps() : (Number(state.passiveIncome) || 0);
+        const perClick = (Number(state.clickMultiplier) || 1) * (1 + (Number(state.achBonus) || 0));
+        const clicks = Number(state.totalClicks) || 0;
+
+        setBar('earned', earned, MAX_EARNED);
+        setBar('ips', ips, MAX_IPS);
+        setBar('perClick', perClick, MAX_PER_CLICK);
+        setBar('clicks', clicks, MAX_CLICKS);
+
+        const cardValues = document.querySelectorAll('.profile-stats-grid .profile-stat-value');
+        if (cardValues.length >= 4) {
+            patchAnimateNumber(cardValues[0], earned);
+            patchAnimateNumber(cardValues[1], ips);
+            patchAnimateNumber(cardValues[2], perClick);
+            patchAnimateNumber(cardValues[3], clicks);
+        }
+    }
+
+    // ======================================================
+    // Обёртка updateUI
+    // ======================================================
+    if (typeof updateUI === 'function' && !window.__patchOrigUpdateUI) {
+        window.__patchOrigUpdateUI = updateUI;
+        window.updateUI = function() {
+            window.__patchOrigUpdateUI.apply(this, arguments);
+            try { patchUpdateMiniBars(); } catch(e) {}
+        };
+        try { updateUI = window.updateUI; } catch(e) {}
+    }
+
+    // ======================================================
+    // Хук на вкладку "Профиль"
+    // ======================================================
+    document.querySelectorAll('.tab').forEach(tab => {
+        tab.addEventListener('click', () => {
+            if (tab.dataset.tab === 'profile') {
+                setTimeout(() => {
+                    patchEnhanceHero();
+                    patchAddMiniBars();
+                    patchUpdateMiniBars();
+                }, 50);
+            }
+        });
+    });
+
+    // ======================================================
+    // Первичное применение
+    // ======================================================
+    setTimeout(() => {
+        patchEnhanceHero();
+        patchAddMiniBars();
+        patchUpdateMiniBars();
+        console.log('[PATCH-PROFILE] ✅ Применено');
+    }, 300);
+
+    console.log('[PATCH-PROFILE] ✅ Патч загружен');
+})();
+    
     init();
 })();
 </script>
