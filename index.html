@@ -2655,6 +2655,285 @@
     console.log('[TAB-BAR] ✅ Патч панели вкладок загружен');
 })();
     
+    // ======================================================
+// 🖥️ ПАТЧ: ПК-ВЁРСТКА (САЙДБАРЫ С ПРОФИЛЕМ И МАГАЗИНОМ)
+// ======================================================
+(function patchPCLayout() {
+    console.log('[PC-LAYOUT] Старт...');
+
+    if (window.__pcLayoutPatched) return;
+    window.__pcLayoutPatched = true;
+
+    // ==== 1. CSS ДЛЯ ПК ====
+    const style = document.createElement('style');
+    style.id = 'pc-layout-patch-css';
+    style.textContent = `
+        /* На ПК (широкий экран) включаем flex-раскладку */
+        @media (min-width: 1100px) {
+            body { 
+                display: flex !important; 
+                align-items: center !important; 
+                justify-content: center !important; 
+                padding: 20px !important;
+            }
+            
+            /* Контейнер для сайдбаров и игры */
+            .pc-layout-wrapper {
+                display: flex;
+                align-items: center;
+                justify-content: center;
+                gap: 24px;
+                width: 100%;
+                max-width: 1366px;
+                height: calc(100vh - 40px);
+                position: relative;
+                z-index: 10;
+            }
+
+            /* Сайдбары */
+            .pc-sidebar {
+                width: 280px;
+                flex-shrink: 0;
+                display: flex;
+                flex-direction: column;
+                gap: 16px;
+                animation: pcFadeSlideIn 0.8s ease forwards;
+                opacity: 0;
+            }
+            .pc-sidebar-left { animation-delay: 0.2s; }
+            .pc-sidebar-right { animation-delay: 0.4s; }
+            
+            @keyframes pcFadeSlideIn {
+                from { opacity: 0; transform: translateY(20px); }
+                to { opacity: 1; transform: translateY(0); }
+            }
+
+            .pc-side-card {
+                background: linear-gradient(145deg, rgba(30,30,60,.65), rgba(15,15,35,.75));
+                backdrop-filter: blur(20px);
+                border: 1px solid rgba(255,255,255,0.1);
+                border-radius: 20px;
+                padding: 20px;
+                box-shadow: 0 10px 30px rgba(0,0,0,0.5), inset 0 1px 0 rgba(255,255,255,.1);
+            }
+
+            .pc-side-card-header {
+                font-family: 'Orbitron', sans-serif;
+                font-size: 0.75rem; font-weight: 700;
+                color: #ffd966; letter-spacing: 1.5px; text-transform: uppercase;
+                margin-bottom: 16px; display: flex; align-items: center; gap: 8px;
+            }
+            .pc-side-card-header::before {
+                content: ''; width: 4px; height: 14px; background: #ffd966;
+                border-radius: 2px; box-shadow: 0 0 10px #ffd966;
+            }
+
+            /* Профиль в сайдбаре */
+            .pc-profile-mini { display: flex; align-items: center; gap: 12px; margin-bottom: 16px; }
+            .pc-avatar-mini {
+                width: 48px; height: 48px; border-radius: 50%;
+                background: linear-gradient(135deg, #8b5cf6, #ec4899);
+                display: flex; align-items: center; justify-content: center;
+                font-family: 'Orbitron', sans-serif; font-size: 1.2rem; font-weight: 900;
+                border: 2px solid rgba(255,255,255,0.2); box-shadow: 0 0 15px rgba(236,72,153,0.3);
+            }
+            .pc-info-mini { flex: 1; }
+            .pc-name-mini { font-family: 'Orbitron', sans-serif; font-size: 0.95rem; font-weight: 700; color: #fff; }
+            .pc-lvl-mini { font-size: 0.7rem; color: #94a3b8; }
+
+            .pc-stat-row { display: flex; justify-content: space-between; font-size: 0.75rem; padding: 8px 0; border-bottom: 1px solid rgba(255,255,255,0.05); }
+            .pc-stat-row:last-child { border-bottom: none; }
+            .pc-stat-label { color: #94a3b8; }
+            .pc-stat-val { font-family: 'Orbitron', sans-serif; font-weight: 700; color: #fff; }
+
+            /* Мини-магазин в сайдбаре */
+            .pc-mini-upgrade {
+                display: flex; align-items: center; gap: 10px;
+                background: rgba(0,0,0,0.3); border-radius: 10px; padding: 10px;
+                margin-bottom: 8px; border: 1px solid rgba(255,255,255,0.05);
+                cursor: pointer; transition: all 0.2s;
+            }
+            .pc-mini-upgrade:hover { border-color: rgba(255,217,102,0.3); background: rgba(0,0,0,0.5); }
+            .pc-mini-upg-icon { font-size: 1.2rem; }
+            .pc-mini-upg-info { flex: 1; }
+            .pc-mini-upg-name { font-size: 0.8rem; font-weight: 600; color: #fff; }
+            .pc-mini-upg-cost { font-size: 0.7rem; color: #ffd966; font-family: 'Orbitron', sans-serif; font-weight: 700; }
+
+            /* Кнопка сброса */
+            .pc-btn-reset {
+                width: 100%; padding: 12px; margin-top: 12px;
+                background: linear-gradient(135deg, rgba(239,68,68,0.2), rgba(185,28,28,0.2));
+                border: 1px solid rgba(239,68,68,0.4); border-radius: 10px;
+                color: #fca5a5; font-family: 'Inter', sans-serif; font-size: 0.75rem; font-weight: 700;
+                cursor: pointer; transition: all 0.2s; display: flex; align-items: center; justify-content: center; gap: 6px;
+            }
+            .pc-btn-reset:hover { background: linear-gradient(135deg, rgba(239,68,68,0.3), rgba(185,28,28,0.3)); border-color: #ef4444; color: #fff; }
+
+            /* Сама игра по центру */
+            .game-container {
+                margin: 0 !important;
+                height: calc(100vh - 40px) !important;
+                max-height: 800px !important;
+                border-radius: 32px !important;
+            }
+        }
+    `;
+    document.head.appendChild(style);
+
+    // ==== 2. ЛОГИКА САЙДБАРОВ ====
+    let isPC = window.innerWidth >= 1100;
+    let sidebarLeft = null;
+    let sidebarRight = null;
+    let wrapper = null;
+
+    function buildSidebars() {
+        if (!isPC) return;
+        if (document.getElementById('pcLayoutWrapper')) return;
+
+        const gameContainer = document.querySelector('.game-container');
+        if (!gameContainer) return; // Ждём, пока игра загрузится
+
+        // Создаем обертку
+        wrapper = document.createElement('div');
+        wrapper.id = 'pcLayoutWrapper';
+        wrapper.className = 'pc-layout-wrapper';
+
+        // Левый сайдбар (Профиль)
+        sidebarLeft = document.createElement('div');
+        sidebarLeft.className = 'pc-sidebar pc-sidebar-left';
+        sidebarLeft.innerHTML = `
+            <div class="pc-side-card">
+                <div class="pc-side-card-header">Профиль</div>
+                <div class="pc-profile-mini">
+                    <div class="pc-avatar-mini" id="pcAvatar">P</div>
+                    <div class="pc-info-mini">
+                        <div class="pc-name-mini" id="pcName">Player</div>
+                        <div class="pc-lvl-mini" id="pcLevel">Уровень 1</div>
+                    </div>
+                </div>
+                <div class="pc-stat-row"><span class="pc-stat-label">Всего заработано</span><span class="pc-stat-val" id="pcStatEarned">0</span></div>
+                <div class="pc-stat-row"><span class="pc-stat-label">Доход в сек</span><span class="pc-stat-val" id="pcStatIps">0</span></div>
+                <div class="pc-stat-row"><span class="pc-stat-label">За клик</span><span class="pc-stat-val" id="pcStatPerClick">1</span></div>
+                <div class="pc-stat-row"><span class="pc-stat-label">Всего кликов</span><span class="pc-stat-val" id="pcStatClicks">0</span></div>
+            </div>
+        `;
+
+        // Правый сайдбар (Мини-магазин)
+        sidebarRight = document.createElement('div');
+        sidebarRight.className = 'pc-sidebar pc-sidebar-right';
+        sidebarRight.innerHTML = `
+            <div class="pc-side-card">
+                <div class="pc-side-card-header">Магазин</div>
+                <div id="pcMiniShopList"></div>
+                <div style="text-align: center; margin-top: 12px; font-size: 0.65rem; color: #94a3b8;">Открой вкладку для полного списка</div>
+                <button class="pc-btn-reset" id="pcBtnReset">🗑️ Сброс прогресса</button>
+            </div>
+        `;
+
+        // Вставляем в DOM
+        gameContainer.parentNode.insertBefore(wrapper, gameContainer);
+        wrapper.appendChild(sidebarLeft);
+        wrapper.appendChild(gameContainer);
+        wrapper.appendChild(sidebarRight);
+
+        // Обработчик сброса
+        document.getElementById('pcBtnReset').addEventListener('click', () => {
+            const resetBtn = document.getElementById('resetButton');
+            if (resetBtn) resetBtn.click();
+        });
+
+        renderMiniShop();
+        syncProfileData();
+    }
+
+    // ==== 3. СИНХРОНИЗАЦИЯ ДАННЫХ ====
+    function syncProfileData() {
+        if (!isPC || !document.getElementById('pcName')) return;
+        
+        // Берем данные из глобального state игры
+        if (window.state) {
+            document.getElementById('pcName').textContent = window.state.playerName || 'Игрок';
+            document.getElementById('pcAvatar').textContent = (window.state.playerName || 'P').charAt(0).toUpperCase();
+            
+            // Обновляем статы
+            if (document.getElementById('pcStatEarned')) document.getElementById('pcStatEarned').textContent = formatNumber(window.state.totalEarned || 0);
+            if (document.getElementById('pcStatIps')) document.getElementById('pcStatIps').textContent = formatNumber(typeof calcTotalIps === 'function' ? calcTotalIps() : 0);
+            if (document.getElementById('pcStatPerClick')) document.getElementById('pcStatPerClick').textContent = formatNumber(window.state.clickMultiplier || 1);
+            if (document.getElementById('pcStatClicks')) document.getElementById('pcStatClicks').textContent = formatNumber(window.state.totalClicks || 0);
+        }
+    }
+
+    // ==== 4. МИНИ-МАГАЗИН ====
+    function renderMiniShop() {
+        const list = document.getElementById('pcMiniShopList');
+        if (!list || !window.UPGRADES) return;
+
+        list.innerHTML = '';
+        // Берем первые 3 улучшения для сайдбара
+        window.UPGRADES.slice(0, 3).forEach(u => {
+            const cost = typeof getUpgradeCost === 'function' ? getUpgradeCost(u) : 0;
+            const div = document.createElement('div');
+            div.className = 'pc-mini-upgrade';
+            div.innerHTML = `
+                <div class="pc-mini-upg-icon">${u.icon}</div>
+                <div class="pc-mini-upg-info">
+                    <div class="pc-mini-upg-name">${u.name}</div>
+                    <div class="pc-mini-upg-cost">💰 ${formatNumber(cost)}</div>
+                </div>
+            `;
+            div.addEventListener('click', () => {
+                // Переключаем игру на вкладку магазина при клике
+                const shopTab = document.querySelector('.tab[data-tab="shop"]');
+                if (shopTab) shopTab.click();
+            });
+            list.appendChild(div);
+        });
+    }
+
+    // ==== 5. ПЕРЕХВАТ ОБНОВЛЕНИЙ UI (Чтобы цифры в сайдбаре обновлялись) ====
+    if (typeof updateUI === 'function' && !window.__origUpdateUIPCLayout) {
+        window.__origUpdateUIPCLayout = updateUI;
+        window.updateUI = function() {
+            window.__origUpdateUIPCLayout.apply(this, arguments);
+            syncProfileData();
+            // Обновляем цены в мини-магазине при каждой перерисовке
+            if (isPC) renderMiniShop();
+        };
+        try { updateUI = window.updateUI; } catch(e) {}
+    }
+
+    // ==== 6. РЕАКЦИЯ НА ИЗМЕНЕНИЕ РАЗМЕРА ЭКРАНА ====
+    window.addEventListener('resize', () => {
+        const nowPC = window.innerWidth >= 1100;
+        if (nowPC && !isPC) {
+            isPC = true;
+            buildSidebars();
+        } else if (!nowPC && isPC) {
+            isPC = false;
+            // Удаляем обертку и возвращаем игру на место
+            if (wrapper && wrapper.parentNode) {
+                const gameContainer = document.querySelector('.game-container');
+                wrapper.parentNode.insertBefore(gameContainer, wrapper);
+                wrapper.remove();
+            }
+            wrapper = null;
+            sidebarLeft = null;
+            sidebarRight = null;
+        }
+    });
+
+    // ==== 7. СТАРТ ====
+    // Ждём, пока игра полностью прогрузится
+    setTimeout(() => {
+        if (window.innerWidth >= 1100) {
+            buildSidebars();
+        }
+    }, 1000);
+
+    window.__pcLayout = { buildSidebars, syncProfileData };
+    console.log('[PC-LAYOUT] ✅ Патч загружен');
+})();
+    
     init();
 })();
 </script>
